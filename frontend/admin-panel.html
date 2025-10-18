@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlackBook Admin Panel - God Mode</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(0,0,0,0.4);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 3px solid #ff6b6b;
+            box-shadow: 0 4px 20px rgba(255,107,107,0.3);
+        }
+
+        .header h1 {
+            font-size: 2.8rem;
+            color: #ff6b6b;
+            text-shadow: 0 0 25px rgba(255,107,107,0.6);
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 1.3rem;
+            color: #ffd93d;
+            font-weight: bold;
+            text-shadow: 0 0 15px rgba(255,217,61,0.5);
+        }
+
+        .connection-status {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4757;
+        }
+
+        .status-dot.connected {
+            background: #2ed573;
+            box-shadow: 0 0 15px rgba(46,213,115,0.6);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(255,255,255,0.15);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .panel-icon {
+            font-size: 2rem;
+        }
+
+        .panel-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        /* Admin Panel Styles */
+        .admin-panel .panel-header {
+            color: #ffd93d;
+        }
+
+        .accounts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .account-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .account-card:hover {
+            border-color: #ffd93d;
+            box-shadow: 0 4px 20px rgba(255,217,61,0.3);
+        }
+
+        .account-card.active {
+            border-color: #ffd93d;
+            background: rgba(255,217,61,0.15);
+        }
+
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .account-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .account-balance {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #2ed573;
+        }
+
+        .account-address {
+            font-size: 0.9rem;
+            color: #aaa;
+            font-family: monospace;
+            margin-bottom: 15px;
+        }
+
+        .account-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        .btn-add {
+            background: #2ed573;
+            color: white;
+        }
+
+        .btn-send {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-transfer {
+            background: #4834d4;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .admin-controls {
+            background: rgba(255,217,61,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #ffd93d;
+        }
+
+        .admin-controls h3 {
+            color: #ffd93d;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .admin-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+
+        .btn-admin {
+            background: linear-gradient(45deg, #ffd93d, #ff6b6b);
+            color: #000;
+            font-weight: bold;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-admin:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 25px rgba(255,217,61,0.4);
+        }
+
+        /* Betting Panel Styles */
+        .betting-panel .panel-header {
+            color: #ff6b6b;
+        }
+
+        .current-account {
+            background: rgba(255,107,107,0.1);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #ff6b6b;
+            text-align: center;
+        }
+
+        .current-account h3 {
+            color: #ff6b6b;
+            margin-bottom: 5px;
+        }
+
+        .markets-list {
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .market-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .market-card:hover {
+            border-color: #ff6b6b;
+            box-shadow: 0 4px 20px rgba(255,107,107,0.3);
+        }
+
+        .market-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin-bottom: 10px;
+        }
+
+        .market-description {
+            color: #ccc;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .market-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .market-category {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+
+        .market-deadline {
+            color: #ffd93d;
+        }
+
+        .outcomes-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .outcome-button {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .outcome-button:hover {
+            border-color: #ff6b6b;
+            background: rgba(255,107,107,0.2);
+        }
+
+        .outcome-button.selected {
+            border-color: #2ed573;
+            background: rgba(46,213,115,0.3);
+            color: #2ed573;
+        }
+
+        .bet-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .bet-input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-weight: bold;
+        }
+
+        .btn-bet {
+            background: linear-gradient(45deg, #2ed573, #00d4ff);
+            color: white;
+            font-weight: bold;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-bet:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 20px rgba(46,213,115,0.4);
+        }
+
+        .btn-bet:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .message.show {
+            transform: translateX(0);
+        }
+
+        .message.success {
+            background: #2ed573;
+            color: white;
+        }
+
+        .message.error {
+            background: #ff4757;
+            color: white;
+        }
+
+        /* Live price display */
+        .live-solana-price {
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: rgba(0,0,0,0.3);
+        }
+
+        .countdown-timer {
+            font-weight: bold;
+            color: #ffd93d;
+            font-size: 0.9rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(255,217,61,0.2);
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            z-index: 1001;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,107,107,0.6);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,107,107,0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏆 BlackBook Admin Panel</h1>
+        <div class="subtitle">👨‍💼 God Mode - Manage Accounts & Betting</div>
+    </div>
+
+    <div class="container">
+        <div class="connection-status">
+            <div class="status-item">
+                <div class="status-dot" id="api-status"></div>
+                <span>API Server</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot" id="blockchain-status"></div>
+                <span>BlackBook Layer 1</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot" id="wallet-status"></div>
+                <span>Admin Wallet</span>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <!-- Admin Panel -->
+            <div class="panel admin-panel">
+                <div class="panel-header">
+                    <div class="panel-icon">⚙️</div>
+                    <div class="panel-title">Account Management</div>
+                </div>
+
+                <div class="accounts-grid" id="accounts-grid">
+                    <!-- Accounts will be rendered here -->
+                </div>
+
+                <div class="admin-controls">
+                    <h3>🎛️ Admin Controls</h3>
+                    <div class="admin-buttons">
+                        <button class="btn-admin" onclick="fundAllAccounts()">💰 Fund All Accounts</button>
+                        <button class="btn-admin" onclick="resetAllBalances()">🔄 Reset All Balances</button>
+                        <button class="btn-admin" onclick="createSampleMarkets()">📊 Create Sample Markets</button>
+                        <button class="btn-admin" onclick="exportData()">📤 Export Data</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Betting Panel -->
+            <div class="panel betting-panel">
+                <div class="panel-header">
+                    <div class="panel-icon">🎰</div>
+                    <div class="panel-title">Prediction Betting</div>
+                </div>
+
+                <div class="current-account" id="current-account">
+                    <h3>Current Account: Tech Analyst</h3>
+                    <div>Balance: <span id="current-balance">2,625 BB</span></div>
+                </div>
+
+                <div class="markets-list" id="markets-list">
+                    <!-- Markets will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message notifications -->
+    <div class="message" id="message"></div>
+    <div class="loading" id="loading">Processing...</div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:3000';
+        const BLOCKCHAIN_RPC = 'http://localhost:8545';
+        const BB_TOKEN_TOTAL = 21000;
+        
+        // Live data state
+        let liveSolanaPrice = 0;
+        let liveMarkets = [];
+        let realTimeInterval = null;
+
+        // Test accounts with better names and balances
+        const TEST_ACCOUNTS = [
+            { 
+                name: 'Tech Analyst', 
+                privateKey: '0x1111111111111111111111111111111111111111111111111111111111111111',
+                color: '#e74c3c',
+                balance: 2625
+            },
+            { 
+                name: 'Crypto Trader', 
+                privateKey: '0x2222222222222222222222222222222222222222222222222222222222222222',
+                color: '#3498db',
+                balance: 2800
+            },
+            { 
+                name: 'AI Researcher', 
+                privateKey: '0x3333333333333333333333333333333333333333333333333333333333333333',
+                color: '#2ecc71',
+                balance: 2500
+            },
+            { 
+                name: 'VC Investor', 
+                privateKey: '0x4444444444444444444444444444444444444444444444444444444444444444',
+                color: '#f39c12',
+                balance: 3000
+            },
+            { 
+                name: 'Startup Founder', 
+                privateKey: '0x5555555555555555555555555555555555555555555555555555555555555555',
+                color: '#9b59b6',
+                balance: 2400
+            },
+            { 
+                name: 'Market Maker', 
+                privateKey: '0x6666666666666666666666666666666666666666666666666666666666666666',
+                color: '#1abc9c',
+                balance: 2700
+            },
+            { 
+                name: 'News Editor', 
+                privateKey: '0x7777777777777777777777777777777777777777777777777777777777777777',
+                color: '#34495e',
+                balance: 2300
+            },
+            { 
+                name: 'Whale Trader', 
+                privateKey: '0x8888888888888888888888888888888888888888888888888888888888888888',
+                color: '#e67e22',
+                balance: 4675  // Extra tokens for whale
+            }
+        ];
+
+        // Sample tech prediction markets
+        const SAMPLE_MARKETS = [
+            {
+                id: 1,
+                title: "NVIDIA hits $200 stock price by end of 2025",
+                description: "Will NVIDIA Corporation (NVDA) stock price reach or exceed $200 per share by December 31, 2025? Current price ~$140.",
+                category: "Stocks",
+                deadline: "2025-12-31",
+                outcomes: ["Yes - Hits $200+", "No - Stays Below $200"],
+                odds: [1.8, 2.1]
+            },
+            {
+                id: 2,
+                title: "Apple announces Vision Pro 2 in 2025",
+                description: "Will Apple officially announce the Vision Pro 2 (second generation) during calendar year 2025? Must be official Apple announcement.",
+                category: "Product Launch",
+                deadline: "2025-12-31",
+                outcomes: ["Yes - Announced", "No - Not announced"],
+                odds: [2.3, 1.6]
+            },
+            {
+                id: 3,
+                title: "Bitcoin crosses $150,000 in 2025",
+                description: "Will Bitcoin (BTC) reach or exceed $150,000 USD at any point during 2025? Current price ~$67k.",
+                category: "Crypto",
+                deadline: "2025-12-31",
+                outcomes: ["Yes - Crosses $150k", "No - Stays below"],
+                odds: [3.2, 1.3]
+            },
+            {
+                id: 4,
+                title: "OpenAI releases GPT-5 before July 2025",
+                description: "Will OpenAI announce and release GPT-5 before July 1, 2025? Must be publicly available.",
+                category: "AI",
+                deadline: "2025-07-01",
+                outcomes: ["Yes - Released", "No - Later/Never"],
+                odds: [2.7, 1.4]
+            },
+            {
+                id: 5,
+                title: "Tesla achieves Full Self-Driving by Q3 2025",
+                description: "Will Tesla achieve true Level 5 autonomous driving (no human intervention) by September 30, 2025?",
+                category: "AI/Auto",
+                deadline: "2025-09-30",
+                outcomes: ["Yes - Achieves FSD", "No - Still Level 4"],
+                odds: [4.1, 1.2]
+            },
+            {
+                id: 6,
+                title: "Microsoft acquires Discord in 2025",
+                description: "Will Microsoft Corporation complete the acquisition of Discord Inc. during calendar year 2025?",
+                category: "M&A",
+                deadline: "2025-12-31",
+                outcomes: ["Yes - Acquisition", "No - Remains independent"],
+                odds: [5.5, 1.15]
+            }
+        ];
+
+        let provider;
+        let signer;
+        let currentAccount = TEST_ACCOUNTS[0]; // Start with Tech Analyst
+        let selectedMarket = null;
+        let selectedOutcome = null;
+        let realAccounts = []; // Will load from API
+        let realMarkets = []; // Will load from API
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializeBlockchain();
+            await loadRealData();
+            startLiveUpdates();
+            renderAccounts();
+            
+            // Use real markets if available, otherwise fallback to samples
+            if (realMarkets.length > 0) {
+                renderRealMarkets();
+            } else {
+                renderMarkets();
+            }
+            
+            updateCurrentAccount();
+        });
+
+        // Initialize blockchain connection
+        async function initializeBlockchain() {
+            try {
+                if (typeof ethers !== 'undefined') {
+                    provider = new ethers.providers.JsonRpcProvider(BLOCKCHAIN_RPC);
+                    signer = new ethers.Wallet(currentAccount.privateKey, provider);
+                    console.log('Connected to BlackBook Layer 1');
+                    updateStatus('blockchain-status', true);
+                    updateStatus('wallet-status', true);
+                } else {
+                    console.error('Ethers.js not loaded');
+                    updateStatus('blockchain-status', false);
+                    updateStatus('wallet-status', false);
+                }
+            } catch (error) {
+                console.error('Failed to connect to blockchain:', error);
+                updateStatus('blockchain-status', false);
+                updateStatus('wallet-status', false);
+            }
+        }
+
+        // Live API Functions
+        async function loadRealAccounts() {
+            try {
+                const response = await fetch(`${API_BASE}/accounts`);
+                if (response.ok) {
+                    const accountsData = await response.json();
+                    realAccounts = accountsData;
+                    
+                    // Map real accounts to UI format
+                    const accountNames = ['alice', 'bob', 'charlie', 'diana', 'eve', 'frank', 'grace', 'henry'];
+                    const displayNames = ['Tech Analyst', 'Crypto Trader', 'AI Researcher', 'VC Investor', 'Startup Founder', 'Market Maker', 'Data Scientist', 'Web3 Developer'];
+                    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+                    
+                    accountNames.forEach((account, index) => {
+                        if (accountsData[account]) {
+                            TEST_ACCOUNTS[index].balance = accountsData[account].balance;
+                            TEST_ACCOUNTS[index].realName = account;
+                            TEST_ACCOUNTS[index].name = displayNames[index];
+                            TEST_ACCOUNTS[index].color = colors[index];
+                        }
+                    });
+                    
+                    return true;
+                }
+            } catch (error) {
+                console.error('Failed to load real accounts:', error);
+                return false;
+            }
+        }
+
+        async function loadRealMarkets() {
+            try {
+                const response = await fetch(`${API_BASE}/markets`);
+                if (response.ok) {
+                    const marketsData = await response.json();
+                    realMarkets = marketsData;
+                    return true;
+                }
+            } catch (error) {
+                console.error('Failed to load real markets:', error);
+                return false;
+            }
+        }
+
+        async function loadLiveSolanaPrice() {
+            try {
+                const response = await fetch(`${API_BASE}/solana-price`);
+                if (response.ok) {
+                    const priceData = await response.json();
+                    liveSolanaPrice = priceData.price;
+                    updateLivePriceDisplay(priceData);
+                    return true;
+                }
+            } catch (error) {
+                console.error('Failed to load Solana price:', error);
+                return false;
+            }
+        }
+
+        async function loadRealData() {
+            const accountsLoaded = await loadRealAccounts();
+            const marketsLoaded = await loadRealMarkets();
+            const priceLoaded = await loadLiveSolanaPrice();
+            
+            // Update connection status
+            updateStatus('api-status', accountsLoaded);
+        }
+
+        function startLiveUpdates() {
+            // Update Solana price every 10 seconds
+            realTimeInterval = setInterval(async () => {
+                await loadLiveSolanaPrice();
+            }, 10000);
+        }
+
+        function updateLivePriceDisplay(priceData) {
+            // Update any live price displays in the UI
+            const priceElements = document.querySelectorAll('.live-solana-price');
+            priceElements.forEach(element => {
+                element.textContent = `$${priceData.price.toFixed(2)}`;
+                element.style.color = priceData.change >= 0 ? '#2ed573' : '#ff4757';
+            });
+            
+            // Update countdown timers
+            const timerElements = document.querySelectorAll('.countdown-timer');
+            timerElements.forEach(element => {
+                const marketId = element.dataset.market;
+                if (marketId && marketId.includes('solana')) {
+                    element.textContent = priceData.countdown || 'Loading...';
+                }
+            });
+        }
+
+        async function placeRealBet(accountName, marketId, outcome, amount) {
+            try {
+                const response = await fetch(`${API_BASE}/bet`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        account: accountName,
+                        market: marketId,
+                        outcome: outcome,
+                        amount: amount
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    await loadRealAccounts(); // Refresh account balances
+                    return result;
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Bet placement failed');
+                }
+            } catch (error) {
+                console.error('Failed to place real bet:', error);
+                throw error;
+            }
+        }
+
+        // Check API connection
+        async function checkConnections() {
+            try {
+                const response = await fetch(`${API_BASE}/accounts`);
+                updateStatus('api-status', response.ok);
+            } catch (error) {
+                console.error('API connection failed:', error);
+                updateStatus('api-status', false);
+            }
+        }
+
+        // Update status indicators
+        function updateStatus(elementId, connected) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.classList.toggle('connected', connected);
+            }
+        }
+
+        // Render account cards
+        function renderAccounts() {
+            const grid = document.getElementById('accounts-grid');
+            grid.innerHTML = TEST_ACCOUNTS.map(account => `
+                <div class="account-card ${account.name === currentAccount.name ? 'active' : ''}" 
+                     onclick="switchAccount('${account.name}')" 
+                     style="border-left: 4px solid ${account.color}">
+                    <div class="account-header">
+                        <div class="account-name" style="color: ${account.color}">${account.name}</div>
+                        <div class="account-balance">${account.balance.toLocaleString()} BB</div>
+                    </div>
+                    <div class="account-address">${getAccountAddress(account.privateKey)}</div>
+                    <div class="account-actions">
+                        <button class="btn btn-small btn-add" onclick="event.stopPropagation(); addTokens('${account.name}')">Add</button>
+                        <button class="btn btn-small btn-send" onclick="event.stopPropagation(); sendTokens('${account.name}')">Send</button>
+                        <button class="btn btn-small btn-transfer" onclick="event.stopPropagation(); transferTokens('${account.name}')">Transfer</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Get account address from private key
+        function getAccountAddress(privateKey) {
+            try {
+                const wallet = new ethers.Wallet(privateKey);
+                return wallet.address.substring(0, 10) + '...' + wallet.address.substring(38);
+            } catch {
+                return '0x...' + privateKey.substring(2, 8);
+            }
+        }
+
+        // Switch active account
+        function switchAccount(accountName) {
+            const account = TEST_ACCOUNTS.find(acc => acc.name === accountName);
+            if (account) {
+                currentAccount = account;
+                signer = new ethers.Wallet(account.privateKey, provider);
+                renderAccounts();
+                updateCurrentAccount();
+                showMessage(`Switched to ${accountName}`, 'success');
+            }
+        }
+
+        // Update current account display
+        function updateCurrentAccount() {
+            const currentAccountDiv = document.getElementById('current-account');
+            currentAccountDiv.innerHTML = `
+                <h3 style="color: ${currentAccount.color}">Current Account: ${currentAccount.name}</h3>
+                <div>Balance: <span id="current-balance">${currentAccount.balance.toLocaleString()} BB</span></div>
+            `;
+        }
+
+        // Render real markets from API
+        function renderRealMarkets() {
+            const marketsList = document.getElementById('markets-list');
+            if (realMarkets.length === 0) {
+                renderMarkets(); // Fallback to sample markets
+                return;
+            }
+            
+            marketsList.innerHTML = realMarkets.map(market => `
+                <div class="market-card" id="market-${market.id}">
+                    <div class="market-title">${market.title}</div>
+                    <div class="market-description">${market.description}</div>
+                    <div class="market-info">
+                        <span class="market-category">${market.category || 'Tech'}</span>
+                        <span class="market-deadline">${market.deadline || 'Active'}</span>
+                        ${market.id.includes('solana') ? `
+                            <span class="live-solana-price">$${liveSolanaPrice.toFixed(2)}</span>
+                            <span class="countdown-timer" data-market="${market.id}">Loading...</span>
+                        ` : ''}
+                    </div>
+                    <div class="outcomes-grid">
+                        ${market.outcomes.map((outcome, index) => `
+                            <div class="outcome-button" 
+                                 onclick="selectOutcome('${market.id}', ${index}, '${outcome}')"
+                                 data-market="${market.id}" data-outcome="${index}">
+                                <div>${outcome}</div>
+                                <div style="font-size: 0.9rem; color: #ffd93d; margin-top: 5px;">
+                                    ${market.odds ? market.odds[index].toFixed(1) + 'x odds' : '2.0x odds'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="bet-controls">
+                        <input type="number" class="bet-input" placeholder="Bet amount (BB)" 
+                               id="bet-amount-${market.id}" min="1" max="${currentAccount.balance}">
+                        <button class="btn-bet" onclick="placeBet('${market.id}')" 
+                                id="bet-button-${market.id}" disabled>Place Bet</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render prediction markets
+        function renderMarkets() {
+            const marketsList = document.getElementById('markets-list');
+            marketsList.innerHTML = SAMPLE_MARKETS.map(market => `
+                <div class="market-card" data-market-id="${market.id}">
+                    <div class="market-title">${market.title}</div>
+                    <div class="market-description">${market.description}</div>
+                    <div class="market-info">
+                        <div class="market-category">${market.category}</div>
+                        <div class="market-deadline">Deadline: ${market.deadline}</div>
+                    </div>
+                    <div class="outcomes-grid">
+                        ${market.outcomes.map((outcome, index) => `
+                            <div class="outcome-button" 
+                                 onclick="selectOutcome(${market.id}, ${index}, '${outcome}')"
+                                 data-market="${market.id}" data-outcome="${index}">
+                                <div>${outcome}</div>
+                                <div style="font-size: 0.9rem; color: #ffd93d; margin-top: 5px;">
+                                    ${market.odds[index].toFixed(1)}x odds
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="bet-controls">
+                        <input type="number" class="bet-input" placeholder="Bet amount (BB)" 
+                               id="bet-amount-${market.id}" min="1" max="${currentAccount.balance}">
+                        <button class="btn-bet" onclick="placeBet(${market.id})" 
+                                id="bet-button-${market.id}" disabled>Place Bet</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Select betting outcome
+        function selectOutcome(marketId, outcomeIndex, outcomeName) {
+            // Clear previous selections for this market
+            document.querySelectorAll(`[data-market="${marketId}"]`).forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Select this outcome
+            document.querySelector(`[data-market="${marketId}"][data-outcome="${outcomeIndex}"]`).classList.add('selected');
+            
+            // Enable bet button
+            document.getElementById(`bet-button-${marketId}`).disabled = false;
+            
+            selectedMarket = marketId;
+            selectedOutcome = outcomeIndex;
+            
+            showMessage(`Selected: ${outcomeName}`, 'success');
+        }
+
+        // Place a bet
+        async function placeBet(marketId) {
+            const betAmountInput = document.getElementById(`bet-amount-${marketId}`);
+            const betAmount = parseInt(betAmountInput.value);
+            
+            if (!betAmount || betAmount <= 0) {
+                showMessage('Please enter a valid bet amount', 'error');
+                return;
+            }
+            
+            if (betAmount > currentAccount.balance) {
+                showMessage('Insufficient balance', 'error');
+                return;
+            }
+            
+            if (selectedMarket !== marketId || selectedOutcome === null) {
+                showMessage('Please select an outcome first', 'error');
+                return;
+            }
+            
+            // Find market (try real markets first, then sample markets)
+            let market = realMarkets.find(m => m.id === marketId) || SAMPLE_MARKETS.find(m => m.id === marketId);
+            if (!market) {
+                showMessage('Market not found', 'error');
+                return;
+            }
+            
+            const outcome = market.outcomes[selectedOutcome];
+            const odds = market.odds ? market.odds[selectedOutcome] : 2.0;
+            const potentialPayout = betAmount * odds;
+            
+            if (confirm(`Place ${betAmount} BB bet on "${outcome}" for potential payout of ${potentialPayout.toFixed(0)} BB?`)) {
+                showLoading(true);
+                
+                try {
+                    // Try to place real bet first
+                    if (currentAccount.realName && realMarkets.length > 0) {
+                        await placeRealBet(currentAccount.realName, marketId, selectedOutcome, betAmount);
+                        showMessage(`✅ Real bet placed! ${betAmount} BB on "${outcome}"`, 'success');
+                    } else {
+                        // Fallback to simulation
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        currentAccount.balance -= betAmount;
+                        showMessage(`🎮 Simulated bet! ${betAmount} BB on "${outcome}"`, 'success');
+                    }
+                    
+                    // Update displays
+                    renderAccounts();
+                    updateCurrentAccount();
+                    
+                    // Clear bet form
+                    betAmountInput.value = '';
+                    document.querySelector(`[data-market="${marketId}"][data-outcome="${selectedOutcome}"]`).classList.remove('selected');
+                    document.getElementById(`bet-button-${marketId}`).disabled = true;
+                    
+                    selectedMarket = null;
+                    selectedOutcome = null;
+                    
+                } catch (error) {
+                    console.error('Bet placement failed:', error);
+                    showMessage(`❌ Bet failed: ${error.message}`, 'error');
+                } finally {
+                    showLoading(false);
+                }
+            }
+        }
+
+        // Admin functions
+        async function addTokens(accountName) {
+            const amount = prompt(`How many BB tokens to add to ${accountName}?`);
+            if (amount && !isNaN(amount) && amount > 0) {
+                const account = TEST_ACCOUNTS.find(acc => acc.name === accountName);
+                account.balance += parseInt(amount);
+                renderAccounts();
+                if (account.name === currentAccount.name) updateCurrentAccount();
+                showMessage(`Added ${amount} BB to ${accountName}`, 'success');
+            }
+        }
+
+        async function sendTokens(accountName) {
+            const amount = prompt(`How many BB tokens to send from ${accountName}?`);
+            if (amount && !isNaN(amount) && amount > 0) {
+                const account = TEST_ACCOUNTS.find(acc => acc.name === accountName);
+                if (account.balance >= amount) {
+                    account.balance -= parseInt(amount);
+                    renderAccounts();
+                    if (account.name === currentAccount.name) updateCurrentAccount();
+                    showMessage(`Sent ${amount} BB from ${accountName}`, 'success');
+                } else {
+                    showMessage('Insufficient balance', 'error');
+                }
+            }
+        }
+
+        async function transferTokens(accountName) {
+            const fromAccount = TEST_ACCOUNTS.find(acc => acc.name === accountName);
+            const toAccountName = prompt(`Transfer from ${accountName} to which account?`);
+            const toAccount = TEST_ACCOUNTS.find(acc => acc.name === toAccountName);
+            
+            if (!toAccount) {
+                showMessage('Invalid recipient account', 'error');
+                return;
+            }
+            
+            const amount = prompt(`How many BB tokens to transfer?`);
+            if (amount && !isNaN(amount) && amount > 0) {
+                if (fromAccount.balance >= amount) {
+                    fromAccount.balance -= parseInt(amount);
+                    toAccount.balance += parseInt(amount);
+                    renderAccounts();
+                    if (fromAccount.name === currentAccount.name || toAccount.name === currentAccount.name) {
+                        updateCurrentAccount();
+                    }
+                    showMessage(`Transferred ${amount} BB from ${accountName} to ${toAccountName}`, 'success');
+                } else {
+                    showMessage('Insufficient balance', 'error');
+                }
+            }
+        }
+
+        async function fundAllAccounts() {
+            if (confirm('Fund all accounts with 1000 BB tokens each?')) {
+                TEST_ACCOUNTS.forEach(account => {
+                    account.balance += 1000;
+                });
+                renderAccounts();
+                updateCurrentAccount();
+                showMessage('All accounts funded with 1000 BB', 'success');
+            }
+        }
+
+        async function resetAllBalances() {
+            if (confirm('Reset all account balances to default values?')) {
+                const defaultBalances = [2625, 2800, 2500, 3000, 2400, 2700, 2300, 4675];
+                TEST_ACCOUNTS.forEach((account, index) => {
+                    account.balance = defaultBalances[index];
+                });
+                renderAccounts();
+                updateCurrentAccount();
+                showMessage('All balances reset to defaults', 'success');
+            }
+        }
+
+        async function createSampleMarkets() {
+            showLoading(true);
+            try {
+                // Simulate market creation
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                showMessage('Sample markets created successfully', 'success');
+            } catch (error) {
+                showMessage('Failed to create markets', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function exportData() {
+            const data = {
+                accounts: TEST_ACCOUNTS,
+                currentAccount: currentAccount.name,
+                timestamp: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `blackbook-admin-data-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showMessage('Data exported successfully', 'success');
+        }
+
+        // Utility functions
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = `message ${type}`;
+            message.classList.add('show');
+            setTimeout(() => message.classList.remove('show'), 3000);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Auto-refresh connection status
+        setInterval(checkConnections, 30000);
+    </script>
+</body>
+</html>
