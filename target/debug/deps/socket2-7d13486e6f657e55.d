@@ -1,0 +1,9 @@
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\socket2-7d13486e6f657e55.d: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sockaddr.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\socket.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sockref.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sys\windows.rs
+
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\libsocket2-7d13486e6f657e55.rmeta: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sockaddr.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\socket.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sockref.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sys\windows.rs
+
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\lib.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sockaddr.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\socket.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sockref.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.1\src\sys\windows.rs:

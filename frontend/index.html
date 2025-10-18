@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlackBook Prediction Market - Testing Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .accounts-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .accounts-panel h2 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .account-card {
+            background: #f8f9ff;
+            border: 2px solid #e0e6ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .account-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .account-card.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .account-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .account-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .account-balance {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #27ae60;
+        }
+
+        .account-card.active .account-balance {
+            color: #ecf0f1;
+        }
+
+        .markets-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .markets-panel h2 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .market-card {
+            background: #f8f9ff;
+            border: 2px solid #e0e6ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .market-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .market-description {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .market-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e6ff;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .outcomes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .outcome-card {
+            background: white;
+            border: 2px solid #e0e6ff;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .outcome-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .outcome-name {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .outcome-odds {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .outcome-probability {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .bet-controls {
+            background: #f0f2ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .bet-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .bet-input {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e0e6ff;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .bet-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .bet-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .bet-button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .bet-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .admin-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+
+        .admin-panel h2 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #e74c3c;
+            padding-bottom: 10px;
+        }
+
+        .admin-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .admin-button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .admin-button:hover {
+            background: #c0392b;
+            transform: translateY(-2px);
+        }
+
+        .success-message {
+            background: #27ae60;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .error-message {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .category-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        .potential-payout {
+            background: #27ae60;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 BlackBook Prediction Market</h1>
+            <p>Test Interface - Control 8 Accounts & Bet on Tech Events</p>
+        </div>
+
+        <div class="main-grid">
+            <!-- Accounts Panel -->
+            <div class="accounts-panel">
+                <h2>👥 Test Accounts</h2>
+                <div id="accounts-list">
+                    <!-- Accounts will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Markets Panel -->
+            <div class="markets-panel">
+                <h2>📊 Active Markets</h2>
+                <div id="markets-list">
+                    <!-- Markets will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div class="admin-panel">
+            <h2>⚙️ Admin Controls</h2>
+            <div class="admin-controls">
+                <button class="admin-button" onclick="createSampleMarkets()">Create Sample Markets</button>
+                <button class="admin-button" onclick="distributeTokens()">Distribute BB Tokens</button>
+                <button class="admin-button" onclick="resetAllBalances()">Reset All Balances</button>
+                <button class="admin-button" onclick="exportTestData()">Export Test Data</button>
+                <button class="admin-button" onclick="resolveAllMarkets()">Resolve Markets</button>
+                <button class="admin-button" onclick="refreshData()">Refresh Data</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'http://localhost:3000/api/v1';
+        const TOTAL_BB_TOKENS = 21000;
+
+        // Test accounts with predefined addresses and names
+        const TEST_ACCOUNTS = [
+            { id: 1, name: 'Tech Analyst', address: '0x1111111111111111111111111111111111111111', balance: 0, color: '#e74c3c' },
+            { id: 2, name: 'Crypto Trader', address: '0x2222222222222222222222222222222222222222', balance: 0, color: '#3498db' },
+            { id: 3, name: 'AI Researcher', address: '0x3333333333333333333333333333333333333333', balance: 0, color: '#2ecc71' },
+            { id: 4, name: 'VC Investor', address: '0x4444444444444444444444444444444444444444', balance: 0, color: '#f39c12' },
+            { id: 5, name: 'Startup Founder', address: '0x5555555555555555555555555555555555555555', balance: 0, color: '#9b59b6' },
+            { id: 6, name: 'Market Maker', address: '0x6666666666666666666666666666666666666666', balance: 0, color: '#1abc9c' },
+            { id: 7, name: 'News Editor', address: '0x7777777777777777777777777777777777777777', balance: 0, color: '#34495e' },
+            { id: 8, name: 'Whale Trader', address: '0x8888888888888888888888888888888888888888', balance: 0, color: '#e67e22' }
+        ];
+
+        let currentAccount = TEST_ACCOUNTS[0];
+        let markets = [];
+
+        // Sample tech markets
+        const SAMPLE_MARKETS = [
+            {
+                title: "Will NVIDIA stock hit $200 by end of 2025?",
+                description: "Prediction on NVIDIA stock reaching $200 per share by December 31, 2025",
+                category: "stock_movement",
+                outcomes: ["Yes - Hits $200", "No - Stays Below $200"],
+                closes_at: "2025-12-31T23:59:59Z",
+                initial_liquidity: 5000
+            },
+            {
+                title: "Apple releases Vision Pro 2 in 2025?",
+                description: "Will Apple announce and release the Vision Pro 2 during 2025?",
+                category: "product_launch", 
+                outcomes: ["Yes - Released in 2025", "No - Not in 2025"],
+                closes_at: "2025-12-31T23:59:59Z",
+                initial_liquidity: 3000
+            },
+            {
+                title: "Tesla achieves full self-driving by Q3 2025?",
+                description: "Will Tesla achieve level 5 autonomous driving by September 2025?",
+                category: "ai_milestone",
+                outcomes: ["Yes - FSD Achieved", "No - Still in Development"],
+                closes_at: "2025-09-30T23:59:59Z",
+                initial_liquidity: 7000
+            },
+            {
+                title: "Bitcoin crosses $150,000 in 2025?",
+                description: "Will Bitcoin reach $150,000 USD at any point during 2025?",
+                category: "crypto",
+                outcomes: ["Yes - Crosses $150k", "No - Stays Below"],
+                closes_at: "2025-12-31T23:59:59Z",
+                initial_liquidity: 10000
+            },
+            {
+                title: "OpenAI releases GPT-5 before July 2025?",
+                description: "Will OpenAI announce and release GPT-5 before July 1, 2025?",
+                category: "ai_milestone",
+                outcomes: ["Yes - Released by July", "No - Later or Never"],
+                closes_at: "2025-07-01T23:59:59Z",
+                initial_liquidity: 4000
+            },
+            {
+                title: "Microsoft acquires another major gaming company?",
+                description: "Will Microsoft announce acquisition of a major gaming company (>$1B) in 2025?",
+                category: "acquisition",
+                outcomes: ["Yes - Major Acquisition", "No - No Major Deal"],
+                closes_at: "2025-12-31T23:59:59Z",
+                initial_liquidity: 6000
+            }
+        ];
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAccounts();
+            renderAccounts();
+            loadMarkets();
+        });
+
+        // Initialize accounts with random but fixed token distribution
+        function initializeAccounts() {
+            const baseAmount = Math.floor(TOTAL_BB_TOKENS / 8);
+            const remainder = TOTAL_BB_TOKENS % 8;
+            
+            TEST_ACCOUNTS.forEach((account, index) => {
+                account.balance = baseAmount + (index < remainder ? 1 : 0);
+                // Add some random variation for realistic testing
+                const variation = Math.floor(Math.random() * 500) - 250;
+                account.balance = Math.max(100, account.balance + variation);
+            });
+            
+            // Give whale trader extra tokens
+            TEST_ACCOUNTS[7].balance += 2000;
+        }
+
+        // Render accounts list
+        function renderAccounts() {
+            const accountsList = document.getElementById('accounts-list');
+            accountsList.innerHTML = '';
+
+            TEST_ACCOUNTS.forEach(account => {
+                const accountCard = document.createElement('div');
+                accountCard.className = `account-card ${account.id === currentAccount.id ? 'active' : ''}`;
+                accountCard.onclick = () => selectAccount(account);
+                
+                accountCard.innerHTML = `
+                    <div class="account-info">
+                        <div>
+                            <div class="account-name">${account.name}</div>
+                            <small>${account.address.slice(0, 10)}...</small>
+                        </div>
+                        <div class="account-balance">${account.balance.toLocaleString()} BB</div>
+                    </div>
+                `;
+                
+                accountsList.appendChild(accountCard);
+            });
+        }
+
+        // Select an account
+        function selectAccount(account) {
+            currentAccount = account;
+            renderAccounts();
+        }
+
+        // Load markets from API
+        async function loadMarkets() {
+            try {
+                const response = await fetch(`${API_BASE}/markets`);
+                const data = await response.json();
+                markets = Array.isArray(data) ? data : [];
+                renderMarkets();
+            } catch (error) {
+                console.error('Error loading markets:', error);
+                markets = [];
+                renderMarkets();
+            }
+        }
+
+        // Render markets
+        function renderMarkets() {
+            const marketsList = document.getElementById('markets-list');
+            
+            if (markets.length === 0) {
+                marketsList.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <h3>No Markets Available</h3>
+                        <p>Click "Create Sample Markets" to get started</p>
+                    </div>
+                `;
+                return;
+            }
+
+            marketsList.innerHTML = '';
+            
+            markets.forEach(market => {
+                const marketCard = document.createElement('div');
+                marketCard.className = 'market-card';
+                
+                const categoryColors = {
+                    'stock_movement': '#3498db',
+                    'product_launch': '#e74c3c', 
+                    'ai_milestone': '#9b59b6',
+                    'crypto': '#f39c12',
+                    'acquisition': '#2ecc71'
+                };
+                
+                marketCard.innerHTML = `
+                    <div class="category-tag" style="background: ${categoryColors[market.category] || '#667eea'}">
+                        ${market.category.replace('_', ' ').toUpperCase()}
+                    </div>
+                    <div class="market-title">${market.title}</div>
+                    <div class="market-description">${market.description || 'Prediction market for upcoming tech event'}</div>
+                    
+                    <div class="market-stats">
+                        <div class="stat">
+                            <div class="stat-label">Total Liquidity</div>
+                            <div class="stat-value">${(market.total_liquidity || 0).toLocaleString()} BB</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Volume</div>
+                            <div class="stat-value">${(market.total_volume || 0).toLocaleString()} BB</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Closes</div>
+                            <div class="stat-value">${new Date(market.closes_at).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="outcomes">
+                        ${market.outcomes.map((outcome, index) => `
+                            <div class="outcome-card" onclick="selectOutcome('${market.id}', '${outcome.id}', '${outcome.name}')">
+                                <div class="outcome-name">${outcome.name}</div>
+                                <div class="outcome-odds">${(1/outcome.probability).toFixed(2)}x</div>
+                                <div class="outcome-probability">${(outcome.probability * 100).toFixed(1)}% chance</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="bet-controls">
+                        <div class="bet-input-group">
+                            <input type="number" class="bet-input" placeholder="Amount (BB)" id="bet-amount-${market.id}" min="1" max="${currentAccount.balance}">
+                            <select class="bet-input" id="bet-outcome-${market.id}">
+                                <option value="">Select Outcome</option>
+                                ${market.outcomes.map(outcome => `
+                                    <option value="${outcome.id}">${outcome.name}</option>
+                                `).join('')}
+                            </select>
+                            <button class="bet-button" onclick="placeBet('${market.id}')">Place Bet</button>
+                        </div>
+                        <div id="bet-preview-${market.id}"></div>
+                    </div>
+                `;
+                
+                marketsList.appendChild(marketCard);
+            });
+        }
+
+        // Select outcome and calculate potential payout
+        function selectOutcome(marketId, outcomeId, outcomeName) {
+            const market = markets.find(m => m.id === marketId);
+            const outcome = market.outcomes.find(o => o.id === outcomeId);
+            const betAmountInput = document.getElementById(`bet-amount-${marketId}`);
+            const betOutcomeSelect = document.getElementById(`bet-outcome-${marketId}`);
+            const betPreview = document.getElementById(`bet-preview-${marketId}`);
+            
+            betOutcomeSelect.value = outcomeId;
+            
+            if (betAmountInput.value) {
+                const amount = parseFloat(betAmountInput.value);
+                const payout = amount * (1 / outcome.probability);
+                const profit = payout - amount;
+                
+                betPreview.innerHTML = `
+                    <div style="background: #f0f8ff; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                        <strong>Bet Preview:</strong> ${amount} BB on "${outcomeName}"<br>
+                        <strong>Potential Payout:</strong> ${payout.toFixed(2)} BB<br>
+                        <strong>Potential Profit:</strong> <span style="color: #27ae60">${profit.toFixed(2)} BB</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Place a bet
+        async function placeBet(marketId) {
+            const betAmountInput = document.getElementById(`bet-amount-${marketId}`);
+            const betOutcomeSelect = document.getElementById(`bet-outcome-${marketId}`);
+            const amount = parseFloat(betAmountInput.value);
+            const outcomeId = betOutcomeSelect.value;
+            
+            if (!amount || !outcomeId) {
+                showMessage('Please enter amount and select outcome', 'error');
+                return;
+            }
+            
+            if (amount > currentAccount.balance) {
+                showMessage('Insufficient balance', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/markets/${marketId}/bet`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_address: currentAccount.address,
+                        outcome_id: outcomeId,
+                        amount: amount
+                    })
+                });
+
+                if (response.ok) {
+                    // Update account balance
+                    currentAccount.balance -= amount;
+                    renderAccounts();
+                    
+                    // Clear bet form
+                    betAmountInput.value = '';
+                    betOutcomeSelect.value = '';
+                    document.getElementById(`bet-preview-${marketId}`).innerHTML = '';
+                    
+                    showMessage(`Bet placed successfully! ${amount} BB on market.`, 'success');
+                    
+                    // Refresh markets to show updated stats
+                    setTimeout(() => loadMarkets(), 1000);
+                } else {
+                    const error = await response.json();
+                    showMessage(`Error placing bet: ${error.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error placing bet:', error);
+                showMessage('Error placing bet. Please try again.', 'error');
+            }
+        }
+
+        // Admin functions
+        async function createSampleMarkets() {
+            showMessage('Creating sample markets...', 'success');
+            
+            for (const sampleMarket of SAMPLE_MARKETS) {
+                try {
+                    const response = await fetch(`${API_BASE}/markets`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            ...sampleMarket,
+                            creator: currentAccount.address
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        console.log(`Created market: ${sampleMarket.title}`);
+                    } else {
+                        console.error(`Failed to create market: ${sampleMarket.title}`);
+                    }
+                } catch (error) {
+                    console.error('Error creating market:', error);
+                }
+                
+                // Small delay between requests
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            showMessage('Sample markets created!', 'success');
+            setTimeout(() => loadMarkets(), 2000);
+        }
+
+        function distributeTokens() {
+            initializeAccounts();
+            renderAccounts();
+            showMessage('BlackBook tokens redistributed!', 'success');
+        }
+
+        function resetAllBalances() {
+            TEST_ACCOUNTS.forEach(account => {
+                account.balance = Math.floor(TOTAL_BB_TOKENS / 8);
+            });
+            renderAccounts();
+            showMessage('All balances reset!', 'success');
+        }
+
+        function exportTestData() {
+            const data = {
+                accounts: TEST_ACCOUNTS,
+                markets: markets,
+                timestamp: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'blackbook-test-data.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showMessage('Test data exported!', 'success');
+        }
+
+        function resolveAllMarkets() {
+            showMessage('Market resolution feature coming soon!', 'success');
+        }
+
+        function refreshData() {
+            loadMarkets();
+            showMessage('Data refreshed!', 'success');
+        }
+
+        // Utility functions
+        function showMessage(message, type) {
+            // Remove existing messages
+            const existingMessages = document.querySelectorAll('.success-message, .error-message');
+            existingMessages.forEach(msg => msg.remove());
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'success' ? 'success-message' : 'error-message';
+            messageDiv.textContent = message;
+            
+            document.querySelector('.container').appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+
+        // Update bet previews when amount changes
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('bet-input') && e.target.type === 'number') {
+                const marketId = e.target.id.replace('bet-amount-', '');
+                const outcomeSelect = document.getElementById(`bet-outcome-${marketId}`);
+                
+                if (outcomeSelect.value) {
+                    const market = markets.find(m => m.id === marketId);
+                    const outcome = market.outcomes.find(o => o.id === outcomeSelect.value);
+                    const amount = parseFloat(e.target.value) || 0;
+                    const betPreview = document.getElementById(`bet-preview-${marketId}`);
+                    
+                    if (amount > 0) {
+                        const payout = amount * (1 / outcome.probability);
+                        const profit = payout - amount;
+                        
+                        betPreview.innerHTML = `
+                            <div style="background: #f0f8ff; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                                <strong>Bet Preview:</strong> ${amount} BB on "${outcome.name}"<br>
+                                <strong>Potential Payout:</strong> ${payout.toFixed(2)} BB<br>
+                                <strong>Potential Profit:</strong> <span style="color: #27ae60">${profit.toFixed(2)} BB</span>
+                            </div>
+                        `;
+                    } else {
+                        betPreview.innerHTML = '';
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

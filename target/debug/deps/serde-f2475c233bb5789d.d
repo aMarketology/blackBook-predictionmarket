@@ -1,0 +1,12 @@
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\serde-f2475c233bb5789d.d: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Allied\ Gaming\Documents\GitHub\prediction-makerket\ BlackBook\blackBook\target\debug\build\serde-da418dca019ec52c\out/private.rs
+
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\libserde-f2475c233bb5789d.rmeta: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Allied\ Gaming\Documents\GitHub\prediction-makerket\ BlackBook\blackBook\target\debug\build\serde-da418dca019ec52c\out/private.rs
+
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+C:\Users\Allied\ Gaming\Documents\GitHub\prediction-makerket\ BlackBook\blackBook\target\debug\build\serde-da418dca019ec52c\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\Allied Gaming\\Documents\\GitHub\\prediction-makerket BlackBook\\blackBook\\target\\debug\\build\\serde-da418dca019ec52c\\out
