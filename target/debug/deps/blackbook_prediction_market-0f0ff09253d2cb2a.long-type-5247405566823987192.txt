@@ -1,0 +1,2 @@
+fn(axum::extract::State<Arc<std::sync::Mutex<PredictionMarketBlockchain>>>) -> impl std::future::Future<Output = Result<Json<Value>, axum::http::StatusCode>> {sync_tech_events}
+fn(axum::extract::State<Arc<std::sync::Mutex<PredictionMarketBlockchain>>>) -> impl std::future::Future<Output = Result<Json<Value>, axum::http::StatusCode>> {sync_tech_events}: Handler<_, _>

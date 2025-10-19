@@ -2,7 +2,7 @@ import http.server
 import socketserver
 import os
 
-PORT = 8081
+PORT = 8082
 DIRECTORY = "frontend"
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -22,6 +22,7 @@ if __name__ == "__main__":
         print(f"🌐 BlackBook Frontend Server running at http://localhost:{PORT}")
         print(f"📁 Serving files from: {os.path.abspath(DIRECTORY)}")
         print("\n🎯 Access URLs:")
+        print(f"   🆕 Marketplace Interface: http://localhost:{PORT}/marketplace.html")
         print(f"   Admin Panel (God Mode): http://localhost:{PORT}/admin-panel.html")
         print(f"   Layer 1 Interface: http://localhost:{PORT}/blackbook-layer1.html")
         print(f"   Basic Interface: http://localhost:{PORT}/index.html")
