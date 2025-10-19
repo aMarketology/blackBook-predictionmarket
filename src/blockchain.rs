@@ -615,22 +615,19 @@ impl PredictionMarketBlockchain {
         self.bets.iter().filter(|bet| bet.account == account_name).collect()
     }
 
-    pub fn add_balance(&mut self, account_name: &str, _amount: u64) -> Result<String, String> {
-        // In a real blockchain, this would require mining a block with a coinbase transaction
-        // For demo purposes, mine a block for the specified account
+    pub fn add_balance(&mut self, account_name: &str, amount: u64) -> Result<String, String> {
+        // In admin mode, directly add balance to account
+        // Get the account's address
         if let Some((_, public_key)) = self.demo_wallets.get(account_name) {
             let address = public_key_to_address(public_key);
             let current_balance = self.consensus_engine.get_balance(&address);
             
-            // Mine a block for this account to add funds
-            match self.consensus_engine.mine_block(address.clone()) {
-                Ok(_) => {
-                    let new_balance = self.consensus_engine.get_balance(&address);
-                    Ok(format!("✅ Mined block for {}. Balance: {} BB -> {} BB", 
-                              account_name, current_balance, new_balance))
-                },
-                Err(e) => Err(format!("Failed to mine block: {}", e))
-            }
+            // Directly add to UTXO set in admin mode
+            self.consensus_engine.add_balance_direct(&address, amount * 100_000_000);
+            
+            let new_balance = self.consensus_engine.get_balance(&address);
+            Ok(format!("✅ Added {} BB to {}. Balance: {} BB -> {} BB", 
+                      amount, account_name, current_balance / 100_000_000, new_balance / 100_000_000))
         } else {
             Err(format!("Account '{}' not found", account_name))
         }

@@ -1097,9 +1097,11 @@
             try {
                 const btcResponse = await fetch('http://localhost:3000/bitcoin-price');
                 const btcData = await btcResponse.json();
+                console.log('BTC Data:', btcData);
                 
                 const solResponse = await fetch('http://localhost:3000/solana-price');
                 const solData = await solResponse.json();
+                console.log('SOL Data:', solData);
                 
                 // Update prices with trend indicators
                 updateCryptoPrice('btcPrice', btcData.price, cryptoPrices.btc);
@@ -1108,10 +1110,13 @@
                 cryptoPrices.btc = btcData.price;
                 cryptoPrices.sol = solData.price;
                 
+                console.log('Updated prices - BTC: $' + btcData.price + ', SOL: $' + solData.price);
+                
                 // Generate crypto prediction markets
                 generateCryptoPredictionMarkets();
             } catch (error) {
                 console.error('Failed to load crypto prices:', error);
+                showToast('Failed to load crypto prices', 'error');
             }
         }
 
