@@ -349,6 +349,34 @@ impl ConsensusEngine {
             .map(|output| output.value)
             .sum()
     }
+
+    /// Add balance directly (admin mode)
+    pub fn add_balance_direct(&mut self, address: &str, amount: u64) {
+        // Create a unique hash for this UTXO using timestamp
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        let mut hasher = DefaultHasher::new();
+        address.hash(&mut hasher);
+        chrono::Utc::now().timestamp_millis().hash(&mut hasher);
+        
+        let hash_value = hasher.finish();
+        let hash_bytes: [u8; 32] = {
+            let mut bytes = [0u8; 32];
+            bytes[0..8].copy_from_slice(&hash_value.to_le_bytes());
+            bytes
+        };
+        
+        // Add to UTXO set
+        self.utxo_set.insert(
+            hash_bytes,
+            TransactionOutput {
+                value: amount,
+                script_pubkey: vec![],
+                address: address.to_string(),
+            },
+        );
+    }
 }
 
 /// Blockchain information summary
