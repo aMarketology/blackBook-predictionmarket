@@ -1,0 +1,12 @@
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\thiserror-fbb6a1888ba4550a.d: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\aserror.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\display.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\var.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\private.rs C:\Users\Allied\ Gaming\Documents\GitHub\prediction-makerket\ BlackBook\blackBook\target\debug\build\thiserror-3b21bc71d5bb801e\out/private.rs
+
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\libthiserror-fbb6a1888ba4550a.rmeta: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\aserror.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\display.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\var.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\private.rs C:\Users\Allied\ Gaming\Documents\GitHub\prediction-makerket\ BlackBook\blackBook\target\debug\build\thiserror-3b21bc71d5bb801e\out/private.rs
+
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\lib.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\aserror.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\display.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\var.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.17\src\private.rs:
+C:\Users\Allied\ Gaming\Documents\GitHub\prediction-makerket\ BlackBook\blackBook\target\debug\build\thiserror-3b21bc71d5bb801e\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\Allied Gaming\\Documents\\GitHub\\prediction-makerket BlackBook\\blackBook\\target\\debug\\build\\thiserror-3b21bc71d5bb801e\\out

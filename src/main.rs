@@ -7,832 +7,413 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::{net::SocketAddr, sync::{Arc, Mutex}};
+use std::{net::SocketAddr, sync::{Arc, Mutex}, collections::HashMap};
 use tower_http::cors::{Any, CorsLayer};
-use chrono::Timelike;
-use std::time::Duration;
 
-mod blockchain;
-mod blockchain_core;
-mod consensus;
-mod objectwire_parser;
-mod tech_events;
-mod price_oracle;
-use blockchain::PredictionMarketBlockchain;
-use price_oracle::PriceOracle;
+mod ledger;
+use ledger::Ledger;
 
-// CoinGecko API Key
-const COINGECKO_API_KEY: &str = "CG-xMH9EmSiPEk2MBsFWxu1QUpk";
-
-#[derive(Debug, Deserialize)]
-struct BetRequest {
-    account: String,
-    market: String,
-    outcome: usize,
-    amount: u64,
+// Simple prediction market struct
+#[derive(Debug, serde::Serialize)]
+pub struct PredictionMarket {
+    pub id: String,
+    pub title: String,
+    pub description: String,
+    pub options: Vec<String>,
+    pub is_resolved: bool,
+    pub winning_option: Option<usize>,
+    pub escrow_address: String, // The market's escrow account
+    pub created_at: u64,
 }
 
-#[derive(Debug, Deserialize)]
+// Application state - just a ledger and markets
+#[derive(Debug)]
+pub struct AppState {
+    pub ledger: Ledger,
+    pub markets: HashMap<String, PredictionMarket>,
+}
+
+impl AppState {
+    pub fn new() -> Self {
+        let mut state = Self {
+            ledger: Ledger::new(),
+            markets: HashMap::new(),
+        };
+        
+        // Initialize with some demo accounts
+        state.ledger.deposit("alice", 1000.0, "Initial demo balance");
+        state.ledger.deposit("bob", 500.0, "Initial demo balance");
+        state.ledger.deposit("charlie", 750.0, "Initial demo balance");
+        
+        // Create some sample prediction markets
+        state.create_sample_markets();
+        
+        state
+    }
+    
+    fn create_sample_markets(&mut self) {
+        // Tech prediction market
+        let market_id = "tech_ai_breakthrough_2025".to_string();
+        self.markets.insert(market_id.clone(), PredictionMarket {
+            id: market_id.clone(),
+            title: "Major AI Breakthrough in 2025".to_string(),
+            description: "Will there be a major AI breakthrough (AGI, solved alignment, etc.) announced by a major tech company in 2025?".to_string(),
+            options: vec!["Yes".to_string(), "No".to_string()],
+            is_resolved: false,
+            winning_option: None,
+            escrow_address: format!("MARKET_{}", market_id),
+            created_at: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+        });
+        
+        // Business prediction market
+        let market_id = "business_recession_2025".to_string();
+        self.markets.insert(market_id.clone(), PredictionMarket {
+            id: market_id.clone(),
+            title: "US Recession in 2025".to_string(),
+            description: "Will the United States officially enter a recession in 2025?".to_string(),
+            options: vec!["Yes".to_string(), "No".to_string()],
+            is_resolved: false,
+            winning_option: None,
+            escrow_address: format!("MARKET_{}", market_id),
+            created_at: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+        });
+        
+        // Crypto prediction market
+        let market_id = "crypto_bitcoin_100k".to_string();
+        self.markets.insert(market_id.clone(), PredictionMarket {
+            id: market_id.clone(),
+            title: "Bitcoin reaches $100K in 2025".to_string(),
+            description: "Will Bitcoin (BTC) reach $100,000 USD at any point during 2025?".to_string(),
+            options: vec!["Yes".to_string(), "No".to_string()],
+            is_resolved: false,
+            winning_option: None,
+            escrow_address: format!("MARKET_{}", market_id),
+            created_at: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+        });
+    }
+}
+
+type SharedState = Arc<Mutex<AppState>>;
+
+// Request structures
+#[derive(Deserialize)]
+struct DepositRequest {
+    address: String,
+    amount: f64,
+    memo: String,
+}
+
+#[derive(Deserialize)]
 struct TransferRequest {
     from: String,
     to: String,
-    amount: u64,
+    amount: f64,
+    memo: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct AddBalanceRequest {
-    account: String,
-    amount: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct LiveBetRequest {
-    account: String,
-    amount: u64,
-    outcome: u8, // 0 = higher, 1 = lower
-}
-
-type AppState = Arc<Mutex<PredictionMarketBlockchain>>;
-
-// Health check
-async fn health() -> Json<Value> {
-    Json(json!({
-        "status": "healthy",
-        "service": "BlackBook God Mode Blockchain",
-        "version": "1.0.0",
-        "total_bb_tokens": 21000,
-        "accounts": 8
-    }))
-}
-
-// Get all accounts
-async fn get_accounts(State(state): State<AppState>) -> Result<Json<Value>, StatusCode> {
-    let blockchain = state.lock().unwrap();
-    let accounts: Vec<_> = blockchain.list_accounts().into_iter().map(|acc| {
-        json!({
-            "name": acc.name,
-            "address": acc.address,
-            "balance": acc.balance
-        })
-    }).collect();
-    
-    Ok(Json(json!({
-        "accounts": accounts,
-        "total_accounts": accounts.len()
-    })))
-}
-
-// Get specific account
-async fn get_account(
-    Path(name): Path<String>,
-    state: axum::extract::State<AppState>
-) -> Result<Json<Value>, StatusCode> {
-    let blockchain = state.lock().unwrap();
-    match blockchain.get_account(&name) {
-        Some(account) => {
-            let bets: Vec<_> = blockchain.get_bets_for_account(&name).into_iter().map(|bet| {
-                json!({
-                    "id": bet.id,
-                    "market_id": bet.market_id,
-                    "outcome_index": bet.outcome_index,
-                    "amount": bet.amount,
-                    "potential_payout": bet.potential_payout,
-                    "timestamp": bet.timestamp
-                })
-            }).collect();
-
-            Ok(Json(json!({
-                "name": account.name,
-                "address": account.address,
-                "balance": account.balance,
-                "bets": bets,
-                "total_bets": bets.len()
-            })))
-        }
-        None => Err(StatusCode::NOT_FOUND)
-    }
-}
-
-// Get all markets
-async fn get_markets(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let markets: Vec<_> = blockchain.list_markets().into_iter().map(|market| {
-        json!({
-            "id": market.id,
-            "title": market.title,
-            "description": market.description,
-            "outcomes": market.outcomes,
-            "odds": market.odds,
-            "total_volume": market.total_volume,
-            "is_active": market.is_active
-        })
-    }).collect();
-    
-    Json(json!({
-        "markets": markets,
-        "total_markets": markets.len()
-    }))
-}
-
-// Get specific market with live info
-async fn get_market(
-    Path(id): Path<String>,
-    state: axum::extract::State<AppState>
-) -> Result<Json<Value>, StatusCode> {
-    let blockchain = state.lock().unwrap();
-    match blockchain.get_market(&id) {
-        Some(market) => {
-            let mut response = json!({
-                "id": market.id,
-                "title": market.title,
-                "description": market.description,
-                "outcomes": market.outcomes,
-                "odds": market.odds,
-                "total_volume": market.total_volume,
-                "is_active": market.is_active
-            });
-
-            // Add live info for Solana markets
-            if let Some(live_info) = blockchain.get_live_market_info(&id) {
-                response["live_info"] = json!(live_info);
-                response["is_live"] = json!(true);
-                if id.contains("solana") {
-                    response["current_price"] = json!(blockchain.get_live_solana_price());
-                }
-            }
-
-            Ok(Json(response))
-        },
-        None => Err(StatusCode::NOT_FOUND)
-    }
-}
-
-// Place a bet
-async fn place_bet(
-    state: axum::extract::State<AppState>,
-    Json(payload): Json<BetRequest>
-) -> Result<Json<Value>, StatusCode> {
-    let mut blockchain = state.lock().unwrap();
-    match blockchain.place_bet(&payload.account, &payload.market, payload.outcome, payload.amount) {
-        Ok(message) => Ok(Json(json!({
-            "success": true,
-            "message": message,
-            "bet": {
-                "account": payload.account,
-                "market": payload.market,
-                "outcome": payload.outcome,
-                "amount": payload.amount
-            }
-        }))),
-        Err(error) => Ok(Json(json!({
-            "success": false,
-            "error": error
-        })))
-    }
-}
-
-// Add balance to account
-async fn add_balance(
-    state: axum::extract::State<AppState>,
-    Json(payload): Json<AddBalanceRequest>
-) -> Result<Json<Value>, StatusCode> {
-    let mut blockchain = state.lock().unwrap();
-    match blockchain.add_balance(&payload.account, payload.amount) {
-        Ok(message) => Ok(Json(json!({
-            "success": true,
-            "message": message
-        }))),
-        Err(error) => Ok(Json(json!({
-            "success": false,
-            "error": error
-        })))
-    }
-}
-
-// Transfer between accounts
-async fn transfer(
-    state: axum::extract::State<AppState>,
-    Json(payload): Json<TransferRequest>
-) -> Result<Json<Value>, StatusCode> {
-    let mut blockchain = state.lock().unwrap();
-    match blockchain.transfer(&payload.from, &payload.to, payload.amount) {
-        Ok(message) => Ok(Json(json!({
-            "success": true,
-            "message": message
-        }))),
-        Err(error) => Ok(Json(json!({
-            "success": false,
-            "error": error
-        })))
-    }
-}
-
-// Get live Solana price
-async fn get_solana_price(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let current_price = blockchain.get_live_solana_price();
-    let timestamp = chrono::Utc::now();
-    
-    Json(json!({
-        "symbol": "SOL",
-        "price": current_price,
-        "currency": "USD",
-        "timestamp": timestamp.to_rfc3339(),
-        "next_update_in_seconds": 60 - (timestamp.timestamp() % 60),
-        "live_markets": [
-            {
-                "id": "solana_price_1min_up",
-                "title": "SOL Price UP in 1 minute",
-                "current_price": current_price,
-                "next_settlement": "60 seconds"
-            },
-            {
-                "id": "solana_price_5min_up", 
-                "title": "SOL Price UP in 5 minutes",
-                "current_price": current_price,
-                "next_settlement": "5 minutes"
-            },
-            {
-                "id": "solana_price_breakout",
-                "title": "SOL breaks $200 today",
-                "current_price": current_price,
-                "target": 200.0,
-                "distance_to_target": 200.0 - current_price
-            }
-        ]
-    }))
-}
-
-// Get live Bitcoin price
-async fn get_bitcoin_price(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let current_price = blockchain.get_live_bitcoin_price();
-    let timestamp = chrono::Utc::now();
-    
-    Json(json!({
-        "symbol": "BTC",
-        "price": current_price,
-        "currency": "USD",
-        "timestamp": timestamp.to_rfc3339(),
-        "15min_settlement_in_minutes": 15 - ((timestamp.timestamp() / 60) % 15),
-        "hourly_settlement_in_minutes": 60 - ((timestamp.timestamp() / 60) % 60),
-        "live_markets": [
-            {
-                "id": "btc_15min_above_current",
-                "title": "BTC ABOVE current price in 15 minutes",
-                "current_price": current_price,
-                "next_settlement": "15 minutes"
-            },
-            {
-                "id": "btc_hourly_direction", 
-                "title": "BTC direction next hour",
-                "current_price": current_price,
-                "next_settlement": "1 hour"
-            },
-            {
-                "id": "btc_daily_100k",
-                "title": "BTC hits $100K today",
-                "current_price": current_price,
-                "target": 100000.0,
-                "distance_to_target": 100000.0 - current_price
-            }
-        ]
-    }))
-}
-
-// === TECH EVENTS INTEGRATION ENDPOINTS ===
-
-// Sync real tech events and create markets
-async fn sync_tech_events(
-    State(state): State<AppState>
-) -> Result<Json<Value>, StatusCode> {
-    let mut blockchain = state.lock().unwrap();
-    
-    match blockchain.sync_real_tech_events().await {
-        Ok(new_markets) => {
-            Ok(Json(json!({
-                "status": "success",
-                "message": "Synchronized real tech events",
-                "new_markets_created": new_markets,
-                "sources": ["NewsAPI", "Alpha Vantage", "Conference Schedules", "Known Events"]
-            })))
-        }
-        Err(e) => {
-            eprintln!("Tech events sync error: {}", e);
-            Ok(Json(json!({
-                "status": "partial_success",
-                "message": "Used fallback tech events data",
-                "new_markets_created": 0,
-                "error": e
-            })))
-        }
-    }
-}
-
-// Get tech events from Google News RSS
-async fn get_tech_events(State(_state): State<AppState>) -> Json<Value> {
-    // Use the tech_events module directly
-    match crate::tech_events::fetch_google_news_tech_business().await {
-        Ok(events) => {
-            Json(json!({
-                "status": "success",
-                "events": events,
-                "count": events.len(),
-                "sources": ["Google News Tech", "Google News Business", "Google News AI"]
-            }))
-        }
-        Err(e) => {
-            Json(json!({
-                "status": "error", 
-                "error": format!("Failed to fetch tech events: {}", e),
-                "events": [],
-                "count": 0
-            }))
-        }
-    }
-}
-
-// Get tech event markets
-async fn get_tech_event_markets(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let markets: Vec<_> = blockchain.markets.values()
-        .filter(|market| market.id.starts_with("event_"))
-        .map(|market| {
-            json!({
-                "id": market.id,
-                "title": market.title,
-                "description": market.description,
-                "outcomes": market.outcomes,
-                "odds": market.odds,
-                "total_volume": market.total_volume,
-                "is_active": market.is_active
-            })
-        }).collect();
-    
-    Json(json!({
-        "tech_event_markets": markets,
-        "total_markets": markets.len()
-    }))
-}
-
-// Get crypto prices with betting info
-async fn get_crypto_prices(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let btc_price = blockchain.get_live_bitcoin_price();
-    let sol_price = blockchain.get_live_solana_price();
-    let now = chrono::Utc::now();
-    
-    // Calculate next 15-minute resolution
-    let next_resolution = now + chrono::Duration::minutes(15 - (now.minute() % 15) as i64);
-    
-    Json(json!({
-        "btc_price": btc_price,
-        "sol_price": sol_price,
-        "timestamp": now.to_rfc3339(),
-        "next_resolution": next_resolution.to_rfc3339(),
-        "active_crypto_markets": [
-            {
-                "crypto": "BTC",
-                "interval": "15min",
-                "current_price": btc_price,
-                "next_settlement": next_resolution.to_rfc3339()
-            },
-            {
-                "crypto": "SOL", 
-                "interval": "15min",
-                "current_price": sol_price,
-                "next_settlement": next_resolution.to_rfc3339()
-            }
-        ]
-    }))
-}
-
-#[derive(Debug, Deserialize)]
-struct CryptoBetRequest {
-    account: String,
-    crypto: String,  // "BTC" or "SOL"
-    direction: String,  // "up" or "down"
-    amount: u64,
-}
-
-// Place crypto bet
-async fn place_crypto_bet(
-    state: axum::extract::State<AppState>,
-    Json(payload): Json<CryptoBetRequest>
-) -> Result<Json<Value>, StatusCode> {
-    let mut blockchain = state.lock().unwrap();
-    
-    // Create or find the crypto market for 15-minute betting
-    let market_id = format!("crypto_15min_{}_{}", payload.crypto.to_lowercase(), 
-        chrono::Utc::now().format("%Y%m%d_%H%M"));
-    
-    let outcome = if payload.direction == "up" { 0 } else { 1 };
-    
-    match blockchain.place_bet(&payload.account, &market_id, outcome, payload.amount) {
-        Ok(message) => Ok(Json(json!({
-            "success": true,
-            "message": message,
-            "bet": {
-                "account": payload.account,
-                "crypto": payload.crypto,
-                "direction": payload.direction,
-                "amount": payload.amount,
-                "market_id": market_id
-            }
-        }))),
-        Err(error) => Ok(Json(json!({
-            "success": false,
-            "error": error
-        })))
-    }
-}
-
-// === OBJECTWIRE INTEGRATION ENDPOINTS ===
-
-// Sync ObjectWire articles and create new markets
-async fn sync_objectwire(
-    State(state): State<AppState>
-) -> Result<Json<Value>, StatusCode> {
-    let mut blockchain = state.lock().unwrap();
-    
-    match blockchain.sync_objectwire_articles().await {
-        Ok(new_markets) => {
-            Ok(Json(json!({
-                "status": "success",
-                "message": format!("Synchronized ObjectWire articles"),
-                "new_markets_created": new_markets,
-                "total_claims": blockchain.get_objectwire_claims().len()
-            })))
-        }
-        Err(e) => {
-            eprintln!("ObjectWire sync error: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-// Get all ObjectWire claims (for admin review)
-async fn get_objectwire_claims(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let claims: Vec<_> = blockchain.get_objectwire_claims().iter().map(|claim| {
-        json!({
-            "article_id": claim.article_id,
-            "prediction_question": claim.prediction_question,
-            "outcomes": claim.outcomes,
-            "confidence_score": claim.confidence_score,
-            "claim_type": format!("{:?}", claim.claim_type),
-            "resolution_date": claim.resolution_date,
-            "has_market": claim.market_id.is_some()
-        })
-    }).collect();
-    
-    Json(json!({
-        "claims": claims,
-        "total_claims": claims.len()
-    }))
-}
-
-// Get ObjectWire-generated markets
-async fn get_objectwire_markets(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let markets: Vec<_> = blockchain.get_objectwire_markets().into_iter().map(|market| {
-        json!({
-            "id": market.id,
-            "title": market.title,
-            "description": market.description,
-            "outcomes": market.outcomes,
-            "odds": market.odds,
-            "total_volume": market.total_volume,
-            "is_active": market.is_active
-        })
-    }).collect();
-    
-    Json(json!({
-        "objectwire_markets": markets,
-        "total_markets": markets.len()
-    }))
-}
-
-// Get all real bets from the blockchain - Layer 1 data
-async fn get_bets(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let all_bets = blockchain.bets.iter().map(|bet| {
-        json!({
-            "id": bet.id,
-            "account": bet.account,
-            "market_id": bet.market_id,
-            "outcome_index": bet.outcome_index,
-            "amount": bet.amount,
-            "potential_payout": bet.potential_payout,
-            "timestamp": bet.timestamp
-        })
-    }).collect::<Vec<_>>();
-    
-    Json(json!({
-        "bets": all_bets,
-        "total_bets": all_bets.len(),
-        "source": "Layer 1 Blockchain"
-    }))
-}
-
-// Get all transactions from the consensus engine - Layer 1 data
-async fn get_transactions(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    let all_transactions = blockchain.consensus_engine.get_all_transactions();
-    
-    let transactions: Vec<_> = all_transactions.iter().enumerate().map(|(i, _tx)| {
-        json!({
-            "id": i,
-            "status": "confirmed",
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-            "type": "market_transaction"
-        })
-    }).collect();
-    
-    Json(json!({
-        "transactions": transactions,
-        "total_transactions": transactions.len(),
-        "source": "Layer 1 Blockchain - Real Consensus Engine"
-    }))
-}
-
-// Sync prices with CoinGecko - returns real prices from cache
-async fn sync_prices(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    Json(json!({
-        "status": "synced",
-        "bitcoin": {
-            "price": blockchain.cached_btc_price,
-            "updated": true
-        },
-        "solana": {
-            "price": blockchain.cached_sol_price,
-            "updated": true
-        },
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "source": "CoinGecko Real Prices"
-    }))
-}
-
-// ===== LIVE BITCOIN PRICE MARKET ENDPOINTS =====
-
-/// Get live Bitcoin price market with real CoinGecko data
-async fn get_live_btc_market(State(state): State<AppState>) -> Json<Value> {
-    let blockchain = state.lock().unwrap();
-    
-    // Get current BTC price from cache (updated every 10 seconds)
-    let current_price = blockchain.cached_btc_price;
-    
-    // Get or create live market
-    let live_markets = blockchain.get_live_markets_2();
-    
-    if let Some(market) = live_markets.first() {
-        // Return existing live market
-        let entry_price = market.entry_price;
-        let elapsed = chrono::Utc::now().timestamp() - market.entry_time;
-        let remaining = std::cmp::max(0, market.duration_seconds - elapsed);
-        
-        // Calculate odds based on bet distribution
-        let total_bets = market.total_bets_higher + market.total_bets_lower;
-        let odds_higher = if total_bets > 0 {
-            market.total_bets_lower as f64 / total_bets as f64
-        } else {
-            0.5
-        };
-        let odds_lower = 1.0 - odds_higher;
-        
-        Json(json!({
-            "success": true,
-            "market": {
-                "id": market.id.clone(),
-                "asset": "BTC",
-                "status": market.status.clone(),
-                "entry_price": entry_price,
-                "current_price": current_price,
-                "price_change": current_price - entry_price,
-                "price_change_pct": ((current_price - entry_price) / entry_price * 100.0),
-                "entry_time": market.entry_time,
-                "duration_seconds": market.duration_seconds,
-                "remaining_seconds": remaining,
-                "total_bets_higher": market.total_bets_higher,
-                "total_bets_lower": market.total_bets_lower,
-                "total_volume": market.total_volume,
-                "odds": {
-                    "higher": odds_higher,
-                    "lower": odds_lower
-                },
-                "price_history": market.price_history.iter().map(|p| json!({
-                    "price": p.price,
-                    "timestamp": p.timestamp
-                })).collect::<Vec<_>>(),
-                "winning_outcome": market.winning_outcome
-            }
-        }))
-    } else {
-        Json(json!({
-            "success": false,
-            "message": "No live market currently active",
-            "current_price": current_price
-        }))
-    }
-}
-
-/// Place a bet on the live Bitcoin market
-async fn place_live_btc_bet(
-    State(state): State<AppState>,
-    Json(payload): Json<LiveBetRequest>
-) -> Json<Value> {
-    let mut blockchain = state.lock().unwrap();
-    
-    // Get price before first borrow
-    let btc_price = blockchain.cached_btc_price;
-    
-    // Get or create live market if none exists
-    let live_markets = blockchain.get_live_markets_2();
-    let market_id = if let Some(market) = live_markets.first() {
-        market.id.clone()
-    } else {
-        // Create new live market
-        blockchain.create_live_btc_market_2(btc_price)
-    };
-    
-    // Place the bet
-    match blockchain.place_live_bet_2(&market_id, &payload.account, payload.amount, payload.outcome) {
-        Ok(bet_id) => {
-            if let Some(market) = blockchain.get_live_market_2(&market_id) {
-                let odds_higher = if market.total_bets_higher + market.total_bets_lower > 0 {
-                    market.total_bets_lower as f64 / (market.total_bets_higher + market.total_bets_lower) as f64
-                } else {
-                    0.5
-                };
-                
-                Json(json!({
-                    "success": true,
-                    "message": format!("✅ Placed {} BB bet on BTC going {} in 15 minutes", 
-                        payload.amount, 
-                        if payload.outcome == 0 { "HIGHER ⬆️" } else { "LOWER ⬇️" }),
-                    "bet": {
-                        "id": bet_id,
-                        "account": payload.account.clone(),
-                        "market_id": market_id.clone(),
-                        "outcome": if payload.outcome == 0 { "HIGHER" } else { "LOWER" },
-                        "amount": payload.amount,
-                        "entry_price": market.entry_price,
-                        "current_price": blockchain.cached_btc_price
-                    },
-                    "market_odds": {
-                        "higher": odds_higher,
-                        "lower": 1.0 - odds_higher
-                    }
-                }))
-            } else {
-                Json(json!({
-                    "success": false,
-                    "error": "Failed to retrieve market after bet placement"
-                }))
-            }
-        }
-        Err(error) => {
-            Json(json!({
-                "success": false,
-                "error": error
-            }))
-        }
-    }
+#[derive(Deserialize)]
+struct BetRequest {
+    user_address: String,
+    market_id: String,
+    option_index: usize,
+    amount: f64,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing
-    tracing_subscriber::fmt::init();
+async fn main() {
+    let state = Arc::new(Mutex::new(AppState::new()));
 
-    // Load environment variables
-    dotenv::dotenv().ok();
-    let api_key = std::env::var("COINGECKO_API_KEY")
-        .unwrap_or_else(|_| "CG-xMH9EmSiPEk2MBsFWxu1QUpk".to_string());
-
-    // Create blockchain with god mode
-    let blockchain = Arc::new(Mutex::new(PredictionMarketBlockchain::new()));
-
-    // Setup real-time price oracle
-    let price_oracle = Arc::new(PriceOracle::new(api_key));
-    let blockchain_clone = Arc::clone(&blockchain);
-    let oracle_clone = Arc::clone(&price_oracle);
-
-    // Start background task to poll CoinGecko prices every 10 seconds
-    tokio::spawn(async move {
-        println!("🔄 Starting CoinGecko price polling (every 10 seconds)...");
-        loop {
-            tokio::time::sleep(Duration::from_secs(10)).await;
-            
-            match oracle_clone.fetch_prices().await {
-                Ok((btc_price, sol_price)) => {
-                    let mut blockchain = blockchain_clone.lock().unwrap();
-                    blockchain.cached_btc_price = btc_price;
-                    blockchain.cached_sol_price = sol_price;
-                    blockchain.last_price_update = chrono::Utc::now();
-                    println!("📊 Price Update: BTC ${:.2} | SOL ${:.2}", btc_price, sol_price);
-                }
-                Err(e) => {
-                    eprintln!("⚠️  Failed to fetch prices from CoinGecko: {}", e);
-                }
-            }
-        }
-    });
-
-    // Build router
     let app = Router::new()
-        .route("/", get(|| async { 
-            Json(json!({
-                "service": "BlackBook God Mode Blockchain",
-                "version": "1.0.0",
-                "description": "Terminal-controlled prediction market blockchain",
-                "god_mode": true,
-                "total_bb_tokens": 21000,
-                "commands": {
-                    "GET": {
-                        "/health": "Health check",
-                        "/accounts": "List all accounts",
-                        "/accounts/{name}": "Get account details",
-                        "/markets": "List all markets",
-                        "/markets/{id}": "Get market details"
-                    },
-                    "POST": {
-                        "/bet": "Place bet - {\"account\": \"alice\", \"market\": \"nvidia_200\", \"outcome\": 0, \"amount\": 100}",
-                        "/add-balance": "Add balance - {\"account\": \"alice\", \"amount\": 1000}",
-                        "/transfer": "Transfer tokens - {\"from\": \"alice\", \"to\": \"bob\", \"amount\": 100}"
-                    }
-                },
-                "example_commands": [
-                    "curl -X POST http://localhost:3000/bet -H \"Content-Type: application/json\" -d \"{\\\"account\\\": \\\"alice\\\", \\\"market\\\": \\\"nvidia_200\\\", \\\"outcome\\\": 0, \\\"amount\\\": 100}\"",
-                    "curl -X POST http://localhost:3000/add-balance -H \"Content-Type: application/json\" -d \"{\\\"account\\\": \\\"alice\\\", \\\"amount\\\": 1000}\"",
-                    "curl http://localhost:3000/accounts/alice"
-                ]
-            }))
-        }))
-        .route("/health", get(health))
-        .route("/accounts", get(get_accounts))
-        .route("/accounts/:name", get(get_account))
+        // Ledger endpoints
+        .route("/balance/:address", get(get_balance))
+        .route("/deposit", post(deposit_funds))
+        .route("/transfer", post(transfer_funds))
+        .route("/transactions/:address", get(get_user_transactions))
+        .route("/transactions", get(get_all_transactions))
+        .route("/ledger/stats", get(get_ledger_stats))
+        
+        // Market endpoints
         .route("/markets", get(get_markets))
         .route("/markets/:id", get(get_market))
         .route("/bet", post(place_bet))
-        .route("/bets", get(get_bets))
-        .route("/transactions", get(get_transactions))
-        .route("/add-balance", post(add_balance))
-        .route("/transfer", post(transfer))
-        .route("/solana-price", get(get_solana_price))
-        .route("/sync-prices", post(sync_prices))
-        .route("/objectwire/claims", get(get_objectwire_claims))
-        .route("/objectwire/markets", get(get_objectwire_markets))
-        .route("/bitcoin-price", get(get_bitcoin_price))
-        .route("/tech-events", get(get_tech_events))
-        .route("/tech-events/markets", get(get_tech_event_markets))
-        .route("/crypto-prices", get(get_crypto_prices))
-        .route("/crypto-bet", post(place_crypto_bet))
-        .route("/live-btc-market", get(get_live_btc_market))
-        .route("/live-btc-bet", post(place_live_btc_bet))
-        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
-        .with_state(blockchain);
+        .route("/resolve/:market_id/:winning_option", post(resolve_market))
+        
+        // Health check
+        .route("/health", get(health_check))
+        
+        .with_state(state)
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        );
 
-    // Start server
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    println!("🚀 BlackBook Prediction Market starting on http://{}", addr);
+    println!("📚 API Endpoints:");
+    println!("   GET  /health - Health check");
+    println!("   GET  /balance/:address - Get account balance");
+    println!("   POST /deposit - Deposit funds");
+    println!("   POST /transfer - Transfer between accounts");
+    println!("   GET  /transactions/:address - Get user transactions");
+    println!("   GET  /transactions - Get all transactions");
+    println!("   GET  /ledger/stats - Get ledger statistics");
+    println!("   GET  /markets - List all prediction markets");
+    println!("   GET  /markets/:id - Get specific market");
+    println!("   POST /bet - Place a bet on a market");
+    println!("   POST /resolve/:market_id/:winning_option - Resolve market (admin)");
     
-    println!("🏆 BlackBook God Mode Blockchain Starting!");
-    println!("===============================================");
-    println!("🌐 Server: http://localhost:3000");
-    println!("💰 Total BB Tokens: 21,000");
-    println!("👥 Accounts: 8 (alice, bob, charlie, diana, eve, frank, grace, henry)");
-    println!("📊 Markets: 35+ REAL events + 🚀 LIVE Solana betting + 📰 ObjectWire Integration!");
-    println!("📰 ObjectWire: Auto-generated markets from intelligence articles");
-    println!("");
-    println!("🎯 Example Commands (35+ Markets + ObjectWire Integration!):");
-    println!("# 🚀 LIVE SOLANA BETTING (Updates every minute!)");
-    println!("curl -X POST http://localhost:3000/bet -H \"Content-Type: application/json\" \\");
-    println!("  -d '{{\"account\": \"alice\", \"market\": \"solana_price_1min_up\", \"outcome\": 0, \"amount\": 50}}'");
-    println!("");
-    println!("# Samsung XR Headset (Oct 21, 2025)");
-    println!("curl -X POST http://localhost:3000/bet -H \"Content-Type: application/json\" \\");
-    println!("  -d '{{\"account\": \"bob\", \"market\": \"samsung_xr_4k\", \"outcome\": 0, \"amount\": 100}}'");
-    println!("");
-    println!("# Check account status");
-    println!("curl http://localhost:3000/accounts/alice");
-    println!("");
-    println!("# List all markets (tech events + ObjectWire)");
-    println!("curl http://localhost:3000/markets");
-    println!("");
-    println!("# 📰 ObjectWire Integration Commands:");
-    println!("curl -X POST http://localhost:3000/objectwire/sync");
-    println!("curl http://localhost:3000/objectwire/claims");
-    println!("curl http://localhost:3000/objectwire/markets");
-    println!("");
-    println!("# 🎯 Real Tech Events Commands:");
-    println!("curl -X POST http://localhost:3000/tech-events/sync");
-    println!("curl http://localhost:3000/tech-events/markets");
-    println!("");
-    println!("🚀 Ready for god mode + Real Event betting!");
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+// Handler functions
+async fn health_check() -> Json<Value> {
+    Json(json!({
+        "status": "healthy",
+        "service": "BlackBook Prediction Market",
+        "version": "1.0.0",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    }))
+}
 
-    Ok(())
+async fn get_balance(
+    State(state): State<SharedState>,
+    Path(address): Path<String>
+) -> Json<Value> {
+    let app_state = state.lock().unwrap();
+    let balance = app_state.ledger.get_balance(&address);
+    
+    Json(json!({
+        "address": address,
+        "balance": balance
+    }))
+}
+
+async fn deposit_funds(
+    State(state): State<SharedState>,
+    Json(payload): Json<DepositRequest>
+) -> Result<Json<Value>, StatusCode> {
+    let mut app_state = state.lock().unwrap();
+    
+    let tx_id = app_state.ledger.deposit(&payload.address, payload.amount, &payload.memo);
+    
+    Ok(Json(json!({
+        "success": true,
+        "transaction_id": tx_id,
+        "new_balance": app_state.ledger.get_balance(&payload.address)
+    })))
+}
+
+async fn transfer_funds(
+    State(state): State<SharedState>,
+    Json(payload): Json<TransferRequest>
+) -> Result<Json<Value>, StatusCode> {
+    let mut app_state = state.lock().unwrap();
+    
+    match app_state.ledger.transfer(&payload.from, &payload.to, payload.amount, &payload.memo) {
+        Ok(tx_id) => {
+            Ok(Json(json!({
+                "success": true,
+                "transaction_id": tx_id,
+                "from_balance": app_state.ledger.get_balance(&payload.from),
+                "to_balance": app_state.ledger.get_balance(&payload.to)
+            })))
+        },
+        Err(error) => {
+            Ok(Json(json!({
+                "success": false,
+                "error": error
+            })))
+        }
+    }
+}
+
+async fn get_user_transactions(
+    State(state): State<SharedState>,
+    Path(address): Path<String>
+) -> Json<Value> {
+    let app_state = state.lock().unwrap();
+    let transactions = app_state.ledger.get_transactions_for_user(&address);
+    
+    Json(json!({
+        "address": address,
+        "transactions": transactions,
+        "count": transactions.len()
+    }))
+}
+
+async fn get_all_transactions(
+    State(state): State<SharedState>
+) -> Json<Value> {
+    let app_state = state.lock().unwrap();
+    let transactions = app_state.ledger.get_all_transactions();
+    
+    Json(json!({
+        "transactions": transactions,
+        "count": transactions.len()
+    }))
+}
+
+async fn get_ledger_stats(
+    State(state): State<SharedState>
+) -> Json<Value> {
+    let app_state = state.lock().unwrap();
+    let stats = app_state.ledger.get_stats();
+    
+    Json(json!({
+        "ledger_stats": stats
+    }))
+}
+
+async fn get_markets(
+    State(state): State<SharedState>
+) -> Json<Value> {
+    let app_state = state.lock().unwrap();
+    let markets: Vec<&PredictionMarket> = app_state.markets.values().collect();
+    
+    Json(json!({
+        "markets": markets,
+        "count": markets.len()
+    }))
+}
+
+async fn get_market(
+    State(state): State<SharedState>,
+    Path(market_id): Path<String>
+) -> Result<Json<Value>, StatusCode> {
+    let app_state = state.lock().unwrap();
+    
+    match app_state.markets.get(&market_id) {
+        Some(market) => {
+            let escrow_balance = app_state.ledger.get_balance(&market.escrow_address);
+            
+            Ok(Json(json!({
+                "market": market,
+                "escrow_balance": escrow_balance
+            })))
+        },
+        None => Err(StatusCode::NOT_FOUND)
+    }
+}
+
+async fn place_bet(
+    State(state): State<SharedState>,
+    Json(payload): Json<BetRequest>
+) -> Result<Json<Value>, StatusCode> {
+    // First, get the market info without borrowing mutably
+    let (escrow_address, market_title, market_option, is_resolved, valid_option) = {
+        let app_state = state.lock().unwrap();
+        
+        let market = match app_state.markets.get(&payload.market_id) {
+            Some(m) => m,
+            None => return Err(StatusCode::NOT_FOUND)
+        };
+        
+        let valid_option = payload.option_index < market.options.len();
+        let market_option = if valid_option { 
+            market.options[payload.option_index].clone() 
+        } else { 
+            String::new() 
+        };
+        
+        (market.escrow_address.clone(), market.title.clone(), market_option, market.is_resolved, valid_option)
+    };
+    
+    // Check if market is resolved
+    if is_resolved {
+        return Ok(Json(json!({
+            "success": false,
+            "error": "Market is already resolved"
+        })));
+    }
+    
+    // Check if option index is valid
+    if !valid_option {
+        return Ok(Json(json!({
+            "success": false,
+            "error": "Invalid option index"
+        })));
+    }
+    
+    // Now place the bet with mutable access
+    let mut app_state = state.lock().unwrap();
+    match app_state.ledger.place_bet(&payload.user_address, &escrow_address, payload.amount) {
+        Ok(tx_id) => {
+            let user_balance = app_state.ledger.get_balance(&payload.user_address);
+            let market_escrow = app_state.ledger.get_balance(&escrow_address);
+            
+            Ok(Json(json!({
+                "success": true,
+                "transaction_id": tx_id,
+                "message": format!("Bet placed on '{}' for option: {}", market_title, market_option),
+                "user_balance": user_balance,
+                "market_escrow": market_escrow
+            })))
+        },
+        Err(error) => {
+            Ok(Json(json!({
+                "success": false,
+                "error": error
+            })))
+        }
+    }
+}
+
+async fn resolve_market(
+    State(state): State<SharedState>,
+    Path((market_id, winning_option)): Path<(String, usize)>
+) -> Result<Json<Value>, StatusCode> {
+    // First get market info and escrow balance without mutable borrow
+    let (market_title, winning_option_text, escrow_balance) = {
+        let app_state = state.lock().unwrap();
+        
+        // Get the market
+        let market = match app_state.markets.get(&market_id) {
+            Some(m) => m,
+            None => return Err(StatusCode::NOT_FOUND)
+        };
+        
+        // Check if already resolved
+        if market.is_resolved {
+            return Ok(Json(json!({
+                "success": false,
+                "error": "Market is already resolved"
+            })));
+        }
+        
+        // Check if winning option is valid
+        if winning_option >= market.options.len() {
+            return Ok(Json(json!({
+                "success": false,
+                "error": "Invalid winning option index"
+            })));
+        }
+        
+        // Get data before mutation
+        let escrow_balance = app_state.ledger.get_balance(&market.escrow_address);
+        let market_title = market.title.clone();
+        let winning_option_text = market.options[winning_option].clone();
+        
+        (market_title, winning_option_text, escrow_balance)
+    };
+    
+    // Now get mutable access to mark as resolved
+    {
+        let mut app_state = state.lock().unwrap();
+        let market = app_state.markets.get_mut(&market_id).unwrap(); // We already checked it exists
+        market.is_resolved = true;
+        market.winning_option = Some(winning_option);
+    }
+    
+    // For demo purposes, we'll just resolve without actual payout logic
+    // In a real system, you'd track individual bets and pay out winners
+    
+    Ok(Json(json!({
+        "success": true,
+        "message": format!("Market '{}' resolved with winning option: {}", market_title, winning_option_text),
+        "winning_option": winning_option,
+        "total_escrow": escrow_balance
+    })))
 }
