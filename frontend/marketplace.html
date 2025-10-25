@@ -679,7 +679,10 @@
             </a>
             
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="showTab('all')">
+                <button class="nav-tab active" onclick="showTab('live')">
+                    <i class="fas fa-fire"></i> 🔴 LIVE BTC
+                </button>
+                <button class="nav-tab" onclick="showTab('all')">
                     <i class="fas fa-store"></i> All Markets
                 </button>
                 <button class="nav-tab" onclick="showTab('crypto')">
@@ -736,8 +739,23 @@
 
         <!-- Center Content -->
         <div class="center-content">
+            <!-- LIVE Bitcoin Market Tab -->
+            <div id="liveTab" class="tab-content active">
+                <div class="content-header">
+                    <h2>🔴 LIVE Bitcoin Price Market</h2>
+                    <p style="color: #65676b; font-size: 14px;">Bet on whether BTC will be HIGHER or LOWER in 15 minutes</p>
+                </div>
+                
+                <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1); margin-bottom: 20px;">
+                    <!-- Live Market Container -->
+                    <div id="liveMarketContainer" style="text-align: center;">
+                        <div style="font-size: 14px; color: #65676b; margin-bottom: 20px;">Loading live market...</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- All Markets Tab -->
-            <div id="allTab" class="tab-content active">
+            <div id="allTab" class="tab-content">
                 <div class="content-header">
                     <h2>All Prediction Markets</h2>
                     <div class="search-bar">
@@ -862,21 +880,247 @@
         let cryptoPrices = {};
         let currentPage = 1;
         let marketsPerPage = 9; // 3x3 grid
+        let liveMarket = null;
+        let liveMarketTimer = null;
+        let countdownTimer = null;
+
+        // ===== LIVE MARKET FUNCTIONS =====
+        
+        /// Load and display live Bitcoin market
+        async function loadLiveMarket() {
+            try {
+                const response = await fetch('http://localhost:3000/live-btc-market');
+                const data = await response.json();
+                
+                if (data.success && data.market) {
+                    liveMarket = data.market;
+                    renderLiveMarket();
+                    
+                    // Refresh price every 5 seconds
+                    if (liveMarketTimer) clearInterval(liveMarketTimer);
+                    liveMarketTimer = setInterval(loadLiveMarket, 5000);
+                } else {
+                    // Market not active, show message
+                    document.getElementById('liveMarketContainer').innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: #65676b;">
+                            <i class="fas fa-pause-circle" style="font-size: 48px; color: #ccc; margin-bottom: 20px;"></i>
+                            <p>No live market active</p>
+                            <p style="font-size: 12px; margin-top: 10px;">Wait for the next market to start or place a bet to create one!</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load live market:', error);
+                document.getElementById('liveMarketContainer').innerHTML = `
+                    <div style="color: #d00; text-align: center;">Error loading live market</div>
+                `;
+            }
+        }
+
+        /// Render live market UI
+        function renderLiveMarket() {
+            if (!liveMarket) return;
+            
+            const container = document.getElementById('liveMarketContainer');
+            const priceDiff = liveMarket.current_price - liveMarket.entry_price;
+            const priceChange = (priceDiff / liveMarket.entry_price * 100).toFixed(2);
+            const priceDirection = priceDiff > 0 ? '📈' : priceDiff < 0 ? '📉' : '➡️';
+            
+            // Calculate odds as percentages
+            const oddsHigher = (liveMarket.odds.higher * 100).toFixed(1);
+            const oddsLower = (liveMarket.odds.lower * 100).toFixed(1);
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+                    <!-- Current Price Section -->
+                    <div style="text-align: center; border-right: 2px solid #e4e6ea; padding-right: 30px;">
+                        <div style="font-size: 14px; color: #65676b; margin-bottom: 10px;">CURRENT PRICE</div>
+                        <div style="font-size: 48px; font-weight: 700; color: #1c1e21; margin-bottom: 10px;">
+                            $${liveMarket.current_price.toLocaleString('en-US', {maximumFractionDigits: 0})}
+                        </div>
+                        <div style="font-size: 20px; color: ${priceDiff > 0 ? '#31a24c' : priceDiff < 0 ? '#e4163a' : '#65676b'};">
+                            ${priceDirection} ${priceDiff > 0 ? '+' : ''}${priceChange}%
+                        </div>
+                    </div>
+                    
+                    <!-- Entry Price & Timer Section -->
+                    <div style="text-align: center;">
+                        <div style="font-size: 14px; color: #65676b; margin-bottom: 10px;">ENTRY PRICE</div>
+                        <div style="font-size: 32px; font-weight: 700; color: #1c1e21; margin-bottom: 15px;">
+                            $${liveMarket.entry_price.toLocaleString('en-US', {maximumFractionDigits: 0})}
+                        </div>
+                        <div style="background: #fff3cd; border-radius: 6px; padding: 12px; margin-bottom: 10px;">
+                            <div style="font-size: 14px; color: #856404; font-weight: 600;">
+                                ⏱️ <span id="countdownDisplay">${formatSeconds(liveMarket.remaining_seconds)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Betting Section -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                    <!-- Bet Higher -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white; cursor: pointer;" onclick="prepareLiveBet(0)">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">BET HIGHER ⬆️</div>
+                        <div style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">Odds: ${oddsHigher}%</div>
+                        <div style="font-size: 12px; opacity: 0.8;">Total Bets: ${liveMarket.total_bets_higher.toLocaleString()} BB</div>
+                        <button style="background: white; color: #667eea; border: none; border-radius: 6px; padding: 10px 20px; font-weight: 600; cursor: pointer; margin-top: 12px; width: 100%;">
+                            PLACE BET
+                        </button>
+                    </div>
+                    
+                    <!-- Bet Lower -->
+                    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 12px; padding: 20px; color: white; cursor: pointer;" onclick="prepareLiveBet(1)">
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 8px;">BET LOWER ⬇️</div>
+                        <div style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">Odds: ${oddsLower}%</div>
+                        <div style="font-size: 12px; opacity: 0.8;">Total Bets: ${liveMarket.total_bets_lower.toLocaleString()} BB</div>
+                        <button style="background: white; color: #f5576c; border: none; border-radius: 6px; padding: 10px 20px; font-weight: 600; cursor: pointer; margin-top: 12px; width: 100%;">
+                            PLACE BET
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bet Amount Input -->
+                <div style="background: #f7f8fa; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <input type="number" id="liveBetAmount" placeholder="Enter bet amount (BB)" min="1" max="10000" 
+                            style="flex: 1; padding: 12px; border: 2px solid #e4e6ea; border-radius: 6px; font-size: 14px;">
+                        <button onclick="placeLiveBet()" style="background: #1877f2; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                            ⚡ BET
+                        </button>
+                    </div>
+                    <div style="font-size: 12px; color: #65676b;">
+                        Account: <strong>${currentAccount || 'Select one'}</strong> 
+                        | Your balance: <strong id="liveBetBalance">-</strong> BB
+                    </div>
+                </div>
+
+                <!-- Market Stats -->
+                <div style="background: #f7f8fa; border-radius: 12px; padding: 15px; font-size: 12px; color: #65676b;">
+                    Total Volume: <strong>${liveMarket.total_volume.toLocaleString()} BB</strong>
+                    | Market Status: <strong>${liveMarket.status.toUpperCase()}</strong>
+                    | Duration: <strong>15 Minutes</strong>
+                </div>
+            `;
+            
+            // Update balance display
+            if (currentAccount) {
+                const account = accounts.find(a => a.name === currentAccount);
+                if (account) {
+                    document.getElementById('liveBetBalance').textContent = account.balance;
+                }
+            }
+            
+            // Update countdown
+            startLiveCountdown();
+        }
+
+        /// Format seconds to MM:SS
+        function formatSeconds(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        /// Start countdown timer
+        function startLiveCountdown() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            
+            let remaining = liveMarket.remaining_seconds;
+            countdownTimer = setInterval(() => {
+                remaining--;
+                if (remaining < 0) {
+                    clearInterval(countdownTimer);
+                    loadLiveMarket();
+                } else {
+                    const display = document.getElementById('countdownDisplay');
+                    if (display) {
+                        display.textContent = formatSeconds(remaining);
+                    }
+                }
+            }, 1000);
+        }
+
+        /// Prepare to place a live bet
+        function prepareLiveBet(outcome) {
+            if (!currentAccount) {
+                showToast('Please select an account first', 'error');
+                return;
+            }
+            
+            // Focus amount input
+            document.getElementById('liveBetAmount').focus();
+            
+            // Store selected outcome globally
+            window.selectedLiveOutcome = outcome;
+            window.selectedLiveOutcomeText = outcome === 0 ? 'HIGHER' : 'LOWER';
+        }
+
+        /// Place a live bet
+        async function placeLiveBet() {
+            if (!currentAccount) {
+                showToast('Please select an account first', 'error');
+                return;
+            }
+            
+            if (window.selectedLiveOutcome === undefined) {
+                showToast('Please click BET HIGHER or BET LOWER first', 'error');
+                return;
+            }
+            
+            const amount = parseInt(document.getElementById('liveBetAmount').value);
+            if (!amount || amount < 1) {
+                showToast('Please enter a valid bet amount', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:3000/live-btc-bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account: currentAccount,
+                        amount: amount,
+                        outcome: window.selectedLiveOutcome
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`✅ ${result.message}`, 'success');
+                    document.getElementById('liveBetAmount').value = '';
+                    loadAccounts();
+                    loadLiveMarket();
+                } else {
+                    showToast(`❌ ${result.error || 'Bet failed'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Bet error:', error);
+                showToast('Network error placing bet', 'error');
+            }
+        }
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 BlackBook Frontend Initializing...');
+            console.log('📡 Blockchain API: http://localhost:3000');
+            console.log('🌐 Frontend: http://localhost:8082');
+            
             loadAccounts();
             loadMarkets();
             loadCryptoPrices();
+            loadLiveMarket();
             loadReceipts();
             loadRecipes();
-            
             // Start auto-refresh for crypto prices
             setInterval(loadCryptoPrices, 5 * 60 * 1000); // Every 5 minutes
             
             // Start auto-refresh for receipts and recipes
             setInterval(loadReceipts, 30 * 1000); // Every 30 seconds
             setInterval(loadRecipes, 30 * 1000); // Every 30 seconds
+            
+            console.log('✅ BlackBook Frontend Ready');
         });
 
         // Tab management
@@ -918,8 +1162,11 @@
         // Load real accounts from blockchain
         async function loadAccounts() {
             try {
+                console.log('📥 Loading accounts from blockchain...');
                 const response = await fetch('http://localhost:3000/accounts');
+                console.log('✅ Accounts response status:', response.status);
                 const data = await response.json();
+                console.log('📊 Loaded', data.accounts.length, 'accounts');
                 accounts = data.accounts;
                 
                 const accountGrid = document.getElementById('accountGrid');
@@ -934,9 +1181,10 @@
                 if (accounts.length > 0) {
                     selectAccount(accounts[0].name);
                 }
+                console.log('✅ Accounts loaded and displayed');
             } catch (error) {
+                console.error('❌ Account loading error:', error);
                 showToast('Failed to load real accounts from blockchain', 'error');
-                console.error('Account loading error:', error);
             }
         }
 
@@ -958,8 +1206,11 @@
         // Load markets - REAL DATA ONLY
         async function loadMarkets() {
             try {
+                console.log('📥 Loading markets from blockchain...');
                 const response = await fetch('http://localhost:3000/markets');
+                console.log('✅ Markets response status:', response.status);
                 const data = await response.json();
+                console.log('📊 Loaded', data.markets.length, 'markets');
                 
                 // Only use real blockchain markets - NO dummy data
                 markets = data.markets.map(market => ({
@@ -975,9 +1226,10 @@
                 
                 renderAllMarkets();
                 updateMarketStats();
+                console.log('✅ Markets loaded and displayed');
             } catch (error) {
+                console.error('❌ Market loading error:', error);
                 showToast('Failed to load real markets from blockchain', 'error');
-                console.error('Market loading error:', error);
             }
         }
 
@@ -1244,7 +1496,14 @@
                     })
                 });
                 
+                if (!response.ok) {
+                    console.error('Bet endpoint error:', response.status, response.statusText);
+                    showToast(`Error placing bet: ${response.statusText}`, 'error');
+                    return;
+                }
+                
                 const result = await response.json();
+                console.log('Bet result:', result);
                 
                 if (result.success) {
                     showToast(`Bet placed successfully! ${amount} BB on "${result.bet.market}"`, 'success');
@@ -1269,7 +1528,8 @@
                     showToast(result.message || 'Failed to place bet', 'error');
                 }
             } catch (error) {
-                showToast('Network error. Please try again.', 'error');
+                console.error('Bet placement error:', error);
+                showToast('Network error. Please try again. Check console for details.', 'error');
             }
         }
 

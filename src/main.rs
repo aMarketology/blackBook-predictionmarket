@@ -10,13 +10,19 @@ use serde_json::{json, Value};
 use std::{net::SocketAddr, sync::{Arc, Mutex}};
 use tower_http::cors::{Any, CorsLayer};
 use chrono::Timelike;
+use std::time::Duration;
 
 mod blockchain;
 mod blockchain_core;
 mod consensus;
 mod objectwire_parser;
 mod tech_events;
+mod price_oracle;
 use blockchain::PredictionMarketBlockchain;
+use price_oracle::PriceOracle;
+
+// CoinGecko API Key
+const COINGECKO_API_KEY: &str = "CG-xMH9EmSiPEk2MBsFWxu1QUpk";
 
 #[derive(Debug, Deserialize)]
 struct BetRequest {
@@ -37,6 +43,13 @@ struct TransferRequest {
 struct AddBalanceRequest {
     account: String,
     amount: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct LiveBetRequest {
+    account: String,
+    amount: u64,
+    outcome: u8, // 0 = higher, 1 = lower
 }
 
 type AppState = Arc<Mutex<PredictionMarketBlockchain>>;
@@ -561,13 +574,171 @@ async fn sync_prices(State(state): State<AppState>) -> Json<Value> {
     }))
 }
 
+// ===== LIVE BITCOIN PRICE MARKET ENDPOINTS =====
+
+/// Get live Bitcoin price market with real CoinGecko data
+async fn get_live_btc_market(State(state): State<AppState>) -> Json<Value> {
+    let blockchain = state.lock().unwrap();
+    
+    // Get current BTC price from cache (updated every 10 seconds)
+    let current_price = blockchain.cached_btc_price;
+    
+    // Get or create live market
+    let live_markets = blockchain.get_live_markets_2();
+    
+    if let Some(market) = live_markets.first() {
+        // Return existing live market
+        let entry_price = market.entry_price;
+        let elapsed = chrono::Utc::now().timestamp() - market.entry_time;
+        let remaining = std::cmp::max(0, market.duration_seconds - elapsed);
+        
+        // Calculate odds based on bet distribution
+        let total_bets = market.total_bets_higher + market.total_bets_lower;
+        let odds_higher = if total_bets > 0 {
+            market.total_bets_lower as f64 / total_bets as f64
+        } else {
+            0.5
+        };
+        let odds_lower = 1.0 - odds_higher;
+        
+        Json(json!({
+            "success": true,
+            "market": {
+                "id": market.id.clone(),
+                "asset": "BTC",
+                "status": market.status.clone(),
+                "entry_price": entry_price,
+                "current_price": current_price,
+                "price_change": current_price - entry_price,
+                "price_change_pct": ((current_price - entry_price) / entry_price * 100.0),
+                "entry_time": market.entry_time,
+                "duration_seconds": market.duration_seconds,
+                "remaining_seconds": remaining,
+                "total_bets_higher": market.total_bets_higher,
+                "total_bets_lower": market.total_bets_lower,
+                "total_volume": market.total_volume,
+                "odds": {
+                    "higher": odds_higher,
+                    "lower": odds_lower
+                },
+                "price_history": market.price_history.iter().map(|p| json!({
+                    "price": p.price,
+                    "timestamp": p.timestamp
+                })).collect::<Vec<_>>(),
+                "winning_outcome": market.winning_outcome
+            }
+        }))
+    } else {
+        Json(json!({
+            "success": false,
+            "message": "No live market currently active",
+            "current_price": current_price
+        }))
+    }
+}
+
+/// Place a bet on the live Bitcoin market
+async fn place_live_btc_bet(
+    State(state): State<AppState>,
+    Json(payload): Json<LiveBetRequest>
+) -> Json<Value> {
+    let mut blockchain = state.lock().unwrap();
+    
+    // Get price before first borrow
+    let btc_price = blockchain.cached_btc_price;
+    
+    // Get or create live market if none exists
+    let live_markets = blockchain.get_live_markets_2();
+    let market_id = if let Some(market) = live_markets.first() {
+        market.id.clone()
+    } else {
+        // Create new live market
+        blockchain.create_live_btc_market_2(btc_price)
+    };
+    
+    // Place the bet
+    match blockchain.place_live_bet_2(&market_id, &payload.account, payload.amount, payload.outcome) {
+        Ok(bet_id) => {
+            if let Some(market) = blockchain.get_live_market_2(&market_id) {
+                let odds_higher = if market.total_bets_higher + market.total_bets_lower > 0 {
+                    market.total_bets_lower as f64 / (market.total_bets_higher + market.total_bets_lower) as f64
+                } else {
+                    0.5
+                };
+                
+                Json(json!({
+                    "success": true,
+                    "message": format!("✅ Placed {} BB bet on BTC going {} in 15 minutes", 
+                        payload.amount, 
+                        if payload.outcome == 0 { "HIGHER ⬆️" } else { "LOWER ⬇️" }),
+                    "bet": {
+                        "id": bet_id,
+                        "account": payload.account.clone(),
+                        "market_id": market_id.clone(),
+                        "outcome": if payload.outcome == 0 { "HIGHER" } else { "LOWER" },
+                        "amount": payload.amount,
+                        "entry_price": market.entry_price,
+                        "current_price": blockchain.cached_btc_price
+                    },
+                    "market_odds": {
+                        "higher": odds_higher,
+                        "lower": 1.0 - odds_higher
+                    }
+                }))
+            } else {
+                Json(json!({
+                    "success": false,
+                    "error": "Failed to retrieve market after bet placement"
+                }))
+            }
+        }
+        Err(error) => {
+            Json(json!({
+                "success": false,
+                "error": error
+            }))
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
+    // Load environment variables
+    dotenv::dotenv().ok();
+    let api_key = std::env::var("COINGECKO_API_KEY")
+        .unwrap_or_else(|_| "CG-xMH9EmSiPEk2MBsFWxu1QUpk".to_string());
+
     // Create blockchain with god mode
-        let blockchain = Arc::new(Mutex::new(PredictionMarketBlockchain::new()));
+    let blockchain = Arc::new(Mutex::new(PredictionMarketBlockchain::new()));
+
+    // Setup real-time price oracle
+    let price_oracle = Arc::new(PriceOracle::new(api_key));
+    let blockchain_clone = Arc::clone(&blockchain);
+    let oracle_clone = Arc::clone(&price_oracle);
+
+    // Start background task to poll CoinGecko prices every 10 seconds
+    tokio::spawn(async move {
+        println!("🔄 Starting CoinGecko price polling (every 10 seconds)...");
+        loop {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            
+            match oracle_clone.fetch_prices().await {
+                Ok((btc_price, sol_price)) => {
+                    let mut blockchain = blockchain_clone.lock().unwrap();
+                    blockchain.cached_btc_price = btc_price;
+                    blockchain.cached_sol_price = sol_price;
+                    blockchain.last_price_update = chrono::Utc::now();
+                    println!("📊 Price Update: BTC ${:.2} | SOL ${:.2}", btc_price, sol_price);
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Failed to fetch prices from CoinGecko: {}", e);
+                }
+            }
+        }
+    });
 
     // Build router
     let app = Router::new()
@@ -618,6 +789,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/tech-events/markets", get(get_tech_event_markets))
         .route("/crypto-prices", get(get_crypto_prices))
         .route("/crypto-bet", post(place_crypto_bet))
+        .route("/live-btc-market", get(get_live_btc_market))
+        .route("/live-btc-bet", post(place_live_btc_bet))
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
         .with_state(blockchain);
 

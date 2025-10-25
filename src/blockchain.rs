@@ -41,6 +41,28 @@ pub struct Bet {
     pub timestamp: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PricePoint {
+    pub price: f64,
+    pub timestamp: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LiveMarket {
+    pub id: String,
+    pub asset: String, // "BTC" or "SOL"
+    pub entry_price: f64,
+    pub entry_time: i64,
+    pub duration_seconds: i64, // How long until market resolves
+    pub created_at: i64,
+    pub status: String, // "active", "expired", "resolved"
+    pub winning_outcome: Option<u8>, // 0 = higher, 1 = lower, None = unresolved
+    pub price_history: Vec<PricePoint>,
+    pub total_bets_higher: u64,
+    pub total_bets_lower: u64,
+    pub total_volume: u64,
+}
+
 #[derive(Debug)]
 pub struct PredictionMarketBlockchain {
     // Real blockchain engine
@@ -51,6 +73,10 @@ pub struct PredictionMarketBlockchain {
     pub bets: Vec<Bet>,
     pub objectwire_parser: ObjectWireParser,
     pub pending_claims: Vec<PredictableClaim>,
+    
+    // Live price prediction markets
+    pub live_markets: Vec<LiveMarket>,
+    pub live_market_bets: HashMap<String, Vec<(String, u8, u64)>>, // market_id -> [(account, outcome, amount)]
     
     // Wallet management for demo
     pub demo_wallets: HashMap<String, (secp256k1::SecretKey, secp256k1::PublicKey)>,
@@ -71,6 +97,8 @@ impl PredictionMarketBlockchain {
             consensus_engine,
             markets: HashMap::new(),
             bets: Vec::new(),
+            live_markets: Vec::new(),
+            live_market_bets: HashMap::new(),
             objectwire_parser: ObjectWireParser::new(),
             pending_claims: Vec::new(),
             demo_wallets: HashMap::new(),
@@ -853,5 +881,71 @@ impl PredictionMarketBlockchain {
             "📊 Article Betting Activity: {} active markets, {} BB total volume",
             active_markets, total_volume
         ))
+    }
+}
+impl PredictionMarketBlockchain {
+    /// Create a new live Bitcoin price market
+    pub fn create_live_btc_market_2(&mut self, current_price: f64) -> String {
+        let market_id = format!("live_btc_{}", Uuid::new_v4());
+        let now = Utc::now().timestamp();
+        
+        let live_market = LiveMarket {
+            id: market_id.clone(),
+            asset: "BTC".to_string(),
+            entry_price: current_price,
+            entry_time: now,
+            duration_seconds: 900,
+            created_at: now,
+            status: "active".to_string(),
+            winning_outcome: None,
+            price_history: vec![PricePoint { price: current_price, timestamp: now }],
+            total_bets_higher: 0,
+            total_bets_lower: 0,
+            total_volume: 0,
+        };
+        
+        self.live_markets.push(live_market);
+        self.live_market_bets.insert(market_id.clone(), Vec::new());
+        market_id
+    }
+
+    /// Place a bet on a live market
+    pub fn place_live_bet_2(&mut self, market_id: &str, account: &str, amount: u64, outcome: u8) -> Result<String, String> {
+        if outcome > 1 {
+            return Err("Invalid outcome".to_string());
+        }
+
+        let market = self.live_markets.iter_mut()
+            .find(|m| m.id == market_id)
+            .ok_or("Market not found")?;
+
+        let elapsed = Utc::now().timestamp() - market.entry_time;
+        if elapsed > market.duration_seconds {
+            market.status = "expired".to_string();
+            return Err("Market expired".to_string());
+        }
+
+        if outcome == 0 {
+            market.total_bets_higher = market.total_bets_higher.saturating_add(amount);
+        } else {
+            market.total_bets_lower = market.total_bets_lower.saturating_add(amount);
+        }
+        market.total_volume = market.total_volume.saturating_add(amount);
+
+        if let Some(bets) = self.live_market_bets.get_mut(market_id) {
+            bets.push((account.to_string(), outcome, amount));
+        }
+
+        Ok(Uuid::new_v4().to_string())
+    }
+
+    /// Get active live markets
+    pub fn get_live_markets_2(&self) -> Vec<&LiveMarket> {
+        self.live_markets.iter().filter(|m| m.status == "active").collect()
+    }
+
+    /// Get specific live market
+    pub fn get_live_market_2(&self, market_id: &str) -> Option<&LiveMarket> {
+        self.live_markets.iter().find(|m| m.id == market_id)
     }
 }
