@@ -36,7 +36,7 @@ pub struct AppState {
 impl AppState {
     pub fn new() -> Self {
         let mut state = Self {
-            ledger: Ledger::new(),
+            ledger: Ledger::new_full_node(),
             markets: HashMap::new(),
         };
         
@@ -113,9 +113,9 @@ struct TransferRequest {
 
 #[derive(Deserialize)]
 struct BetRequest {
-    user_address: String,
-    market_id: String,
-    option_index: usize,
+    account: String,
+    market: String,
+    outcome: usize,
     amount: f64,
 }
 
@@ -303,29 +303,29 @@ async fn place_bet(
     Json(payload): Json<BetRequest>
 ) -> Result<Json<Value>, StatusCode> {
     // First, get the market info without borrowing mutably
-    let (escrow_address, market_title, market_option, is_resolved, valid_option) = {
+    let (market_title, market_option, is_resolved, valid_option) = {
         let app_state = state.lock().unwrap();
         
-        let market = match app_state.markets.get(&payload.market_id) {
+        let market = match app_state.markets.get(&payload.market) {
             Some(m) => m,
             None => return Err(StatusCode::NOT_FOUND)
         };
         
-        let valid_option = payload.option_index < market.options.len();
+        let valid_option = payload.outcome < market.options.len();
         let market_option = if valid_option { 
-            market.options[payload.option_index].clone() 
+            market.options[payload.outcome].clone() 
         } else { 
             String::new() 
         };
         
-        (market.escrow_address.clone(), market.title.clone(), market_option, market.is_resolved, valid_option)
+        (market.title.clone(), market_option, market.is_resolved, valid_option)
     };
     
     // Check if market is resolved
     if is_resolved {
         return Ok(Json(json!({
             "success": false,
-            "error": "Market is already resolved"
+            "message": "Market is already resolved"
         })));
     }
     
@@ -333,29 +333,31 @@ async fn place_bet(
     if !valid_option {
         return Ok(Json(json!({
             "success": false,
-            "error": "Invalid option index"
+            "message": "Invalid outcome index"
         })));
     }
     
     // Now place the bet with mutable access
     let mut app_state = state.lock().unwrap();
-    match app_state.ledger.place_bet(&payload.user_address, &escrow_address, payload.amount) {
+    match app_state.ledger.place_bet(&payload.account, &payload.market, payload.outcome, payload.amount) {
         Ok(tx_id) => {
-            let user_balance = app_state.ledger.get_balance(&payload.user_address);
-            let market_escrow = app_state.ledger.get_balance(&escrow_address);
+            let user_balance = app_state.ledger.get_balance(&payload.account);
             
             Ok(Json(json!({
                 "success": true,
                 "transaction_id": tx_id,
-                "message": format!("Bet placed on '{}' for option: {}", market_title, market_option),
-                "user_balance": user_balance,
-                "market_escrow": market_escrow
+                "bet": {
+                    "market": market_title,
+                    "outcome": market_option,
+                    "amount": payload.amount
+                },
+                "new_balance": user_balance
             })))
         },
         Err(error) => {
             Ok(Json(json!({
                 "success": false,
-                "error": error
+                "message": error
             })))
         }
     }
