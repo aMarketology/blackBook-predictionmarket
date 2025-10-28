@@ -13,6 +13,9 @@ pub struct Ledger {
 
     /// Transaction history for audit trail (stores addresses)
     pub transactions: Vec<Transaction>,
+
+    /// Platform Activity Recipes - comprehensive record of all activities
+    pub recipes: Vec<Recipe>,
 }
 
 /// Simple transaction record (stores addresses in `from` and `to`)
@@ -23,6 +26,38 @@ pub struct Transaction {
     pub amount: f64,
     pub timestamp: u64,
     pub tx_type: String,
+}
+
+/// Platform Activity Recipe - comprehensive record of all blockchain activities
+/// Serves as a "receipt book" for the platform ledger
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Recipe {
+    /// Unique recipe ID
+    pub id: String,
+
+    /// Recipe type: bet_placed, bet_win, bet_loss, transfer, deposit, withdrawal, admin_action
+    pub recipe_type: String,
+
+    /// Account that performed/affected by action
+    pub account: String,
+
+    /// Account address (L1_...)
+    pub address: String,
+
+    /// Amount involved (in BB tokens)
+    pub amount: f64,
+
+    /// Description of the activity
+    pub description: String,
+
+    /// Related market/bet ID if applicable
+    pub related_id: Option<String>,
+
+    /// Timestamp of activity
+    pub timestamp: u64,
+
+    /// Additional metadata
+    pub metadata: HashMap<String, String>,
 }
 
 impl Ledger {
@@ -59,6 +94,7 @@ impl Ledger {
             accounts,
             balances,
             transactions: Vec::new(),
+            recipes: Vec::new(),
         }
     }
 
@@ -68,6 +104,34 @@ impl Ledger {
 
     pub fn new_light_node() -> Self {
         Self::new_full_node()
+    }
+
+    /// Create a recipe record for platform activity
+    fn create_recipe(
+        &self,
+        recipe_type: &str,
+        account: &str,
+        amount: f64,
+        description: &str,
+        related_id: Option<String>,
+    ) -> Recipe {
+        let addr = self.resolve_address(account);
+        let recipe_id = format!("recipe_{}_{}_{}", recipe_type, account, uuid::Uuid::new_v4().simple());
+
+        Recipe {
+            id: recipe_id,
+            recipe_type: recipe_type.to_string(),
+            account: account.to_string(),
+            address: addr,
+            amount,
+            description: description.to_string(),
+            related_id,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            metadata: HashMap::new(),
+        }
     }
 
     /// Resolve an identifier (either display name like "ALICE" or an address) into an address string.
@@ -120,6 +184,16 @@ impl Ledger {
 
         self.transactions.push(tx);
 
+        // Record recipe
+        let recipe = self.create_recipe(
+            "admin_deposit",
+            address_or_name,
+            amount,
+            &format!("Admin deposit of {} BB to {}", amount, address_or_name),
+            None,
+        );
+        self.recipes.push(recipe);
+
         Ok(format!(
             "Added {} BB to {} ({}). New balance: {} BB",
             amount, address_or_name, addr, new_balance
@@ -169,6 +243,17 @@ impl Ledger {
 
         self.transactions.push(tx);
 
+        // Record recipe for sender
+        let recipe_id = format!("transfer_{}_{}_{}", from_or_name, to_or_name, uuid::Uuid::new_v4().simple());
+        let recipe = self.create_recipe(
+            "transfer",
+            from_or_name,
+            amount,
+            &format!("Transferred {} BB to {}", amount, to_or_name),
+            Some(recipe_id.clone()),
+        );
+        self.recipes.push(recipe);
+
         Ok(format!(
             "Transferred {} BB from {} ({}) to {} ({})",
             amount, from_or_name, from_addr, to_or_name, to_addr
@@ -207,6 +292,16 @@ impl Ledger {
 
         self.transactions.push(tx);
 
+        // Record recipe
+        let recipe = self.create_recipe(
+            "bet_placed",
+            from_or_name,
+            amount,
+            &format!("Placed {} BB bet on market {}", amount, market_id),
+            Some(market_id.to_string()),
+        );
+        self.recipes.push(recipe);
+
         Ok(format!(
             "Placed {} BB bet on market {} | New balance: {}",
             amount,
@@ -239,13 +334,90 @@ impl Ledger {
         let total_balance: f64 = self.balances.values().sum();
         let account_count = self.accounts.len();
         let transaction_count = self.transactions.len();
+        let recipe_count = self.recipes.len();
 
         stats.insert("total_balance".to_string(), json!(total_balance));
         stats.insert("account_count".to_string(), json!(account_count));
         stats.insert("transaction_count".to_string(), json!(transaction_count));
+        stats.insert("recipe_count".to_string(), json!(recipe_count));
         stats.insert("accounts".to_string(), json!(self.accounts.clone()));
         stats.insert("balances".to_string(), json!(self.balances.clone()));
 
         stats
+    }
+
+    /// Get all platform activity recipes
+    pub fn get_all_recipes(&self) -> Vec<Recipe> {
+        self.recipes.clone()
+    }
+
+    /// Get recipes for a specific account (by name or address)
+    pub fn get_account_recipes(&self, address_or_name: &str) -> Vec<Recipe> {
+        let name_upper = address_or_name.to_uppercase();
+        self.recipes
+            .iter()
+            .filter(|r| r.account.to_uppercase() == name_upper || r.address == address_or_name)
+            .cloned()
+            .collect()
+    }
+
+    /// Get recipes filtered by type (e.g., "bet_placed", "transfer", "admin_deposit")
+    pub fn get_recipes_by_type(&self, recipe_type: &str) -> Vec<Recipe> {
+        self.recipes
+            .iter()
+            .filter(|r| r.recipe_type == recipe_type)
+            .cloned()
+            .collect()
+    }
+
+    /// Get recipes for account filtered by type
+    pub fn get_account_recipes_by_type(&self, address_or_name: &str, recipe_type: &str) -> Vec<Recipe> {
+        let name_upper = address_or_name.to_uppercase();
+        self.recipes
+            .iter()
+            .filter(|r| {
+                (r.account.to_uppercase() == name_upper || r.address == address_or_name)
+                    && r.recipe_type == recipe_type
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Get all recipes sorted by timestamp (newest first)
+    pub fn get_recipes_sorted(&self) -> Vec<Recipe> {
+        let mut sorted = self.recipes.clone();
+        sorted.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        sorted
+    }
+
+    /// Get recipes for account sorted by timestamp (newest first)
+    pub fn get_account_recipes_sorted(&self, address_or_name: &str) -> Vec<Recipe> {
+        let mut recipes = self.get_account_recipes(address_or_name);
+        recipes.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        recipes
+    }
+
+    /// Record a bet win for an account
+    pub fn record_bet_win(&mut self, address_or_name: &str, amount: f64, bet_id: &str) {
+        let recipe = self.create_recipe(
+            "bet_win",
+            address_or_name,
+            amount,
+            &format!("Won {} BB on bet {}", amount, bet_id),
+            Some(bet_id.to_string()),
+        );
+        self.recipes.push(recipe);
+    }
+
+    /// Record a bet loss for an account
+    pub fn record_bet_loss(&mut self, address_or_name: &str, amount: f64, bet_id: &str) {
+        let recipe = self.create_recipe(
+            "bet_loss",
+            address_or_name,
+            amount,
+            &format!("Lost {} BB on bet {}", amount, bet_id),
+            Some(bet_id.to_string()),
+        );
+        self.recipes.push(recipe);
     }
 }
