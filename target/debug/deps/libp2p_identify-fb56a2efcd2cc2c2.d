@@ -1,0 +1,12 @@
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\libp2p_identify-fb56a2efcd2cc2c2.d: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\behaviour.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\handler.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\protocol.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\generated/mod.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\generated\structs.rs
+
+C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackBook\target\debug\deps\liblibp2p_identify-fb56a2efcd2cc2c2.rmeta: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\behaviour.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\handler.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\protocol.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\generated/mod.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\generated\structs.rs
+
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\lib.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\behaviour.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\handler.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\protocol.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\generated/mod.rs:
+C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\libp2p-identify-0.44.2\src\generated\structs.rs:
+
+# env-dep:CARGO_PKG_VERSION=0.44.2

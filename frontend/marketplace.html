@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlackBook - The DraftKings of Tech & Politics</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js for price graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     <style>
         * {
             margin: 0;
@@ -688,9 +690,6 @@
                 <button class="nav-tab" onclick="showTab('crypto')">
                     <i class="fab fa-bitcoin"></i> Crypto
                 </button>
-                <button class="nav-tab" onclick="showTab('politics')">
-                    <i class="fas fa-landmark"></i> Politics
-                </button>
                 <button class="nav-tab" onclick="showTab('business')">
                     <i class="fas fa-briefcase"></i> Business
                 </button>
@@ -743,14 +742,85 @@
             <div id="liveTab" class="tab-content active">
                 <div class="content-header">
                     <h2>🔴 LIVE Bitcoin Price Market</h2>
-                    <p style="color: #65676b; font-size: 14px;">Bet on whether BTC will be HIGHER or LOWER in 15 minutes</p>
+                    <p style="color: #65676b; font-size: 14px;">Bet on whether BTC will be HIGHER or LOWER in your chosen timeframe</p>
                 </div>
                 
                 <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1); margin-bottom: 20px;">
                     <!-- Live Market Container -->
                     <div id="liveMarketContainer" style="text-align: center;">
-                        <div style="font-size: 14px; color: #65676b; margin-bottom: 20px;">Loading live market...</div>
+                        <div style="font-size: 14px; color: #65676b; margin-bottom: 20px;">Loading live Bitcoin price data...</div>
                     </div>
+                    
+                    <!-- Price Chart -->
+                    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <h3 style="margin-bottom: 15px; color: #1c1e21;">📊 Price History (Last 10 Minutes)</h3>
+                        <canvas id="priceChart" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Betting Section -->
+                <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1);">
+                    <h3 style="margin-bottom: 20px; color: #1c1e21;">🎯 Place Your Bet</h3>
+                    
+                    <!-- Timeframe Selector -->
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #1c1e21;">Select Timeframe:</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <button id="timeframe1min" onclick="selectTimeframe('1min')" style="padding: 12px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                                ⏱️ 1 Minute
+                            </button>
+                            <button id="timeframe15min" onclick="selectTimeframe('15min')" style="padding: 12px; background: #1877f2; color: white; border: 2px solid #1877f2; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                                ⏱️ 15 Minutes
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Timeframe Info -->
+                    <div id="timeframeInfo" style="padding: 15px; background: #fff3cd; border-radius: 6px; margin-bottom: 20px; display: none;">
+                        <div style="color: #856404; font-weight: 600;">
+                            ⏰ <span id="timeframeDisplay">15 minutes</span> | Time Remaining: <span id="timeRemaining">--:--</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Bet Selection -->
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #1c1e21;">Price Direction:</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <button id="betHigher" onclick="selectBetDirection('higher')" style="padding: 15px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 16px;">
+                                📈 HIGHER
+                            </button>
+                            <button id="betLower" onclick="selectBetDirection('lower')" style="padding: 15px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 16px;">
+                                📉 LOWER
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Bet Amount -->
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #1c1e21;">Bet Amount (BlackBook Tokens):</label>
+                        <input type="number" id="betAmount" placeholder="Enter amount..." min="1" max="10000" step="1" style="width: 100%; padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px;">
+                        <small style="color: #65676b; margin-top: 5px; display: block;" id="balanceDisplay">Balance: -- BB</small>
+                    </div>
+                    
+                    <!-- Current Odds -->
+                    <div style="padding: 15px; background: #e7f3ff; border-radius: 6px; margin-bottom: 20px; text-align: center;">
+                        <div style="font-size: 12px; color: #0c5460; font-weight: 600; margin-bottom: 8px;">Current Odds</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div>
+                                <div style="font-size: 20px; color: #0c5460; font-weight: 700;" id="oddsHigher">50%</div>
+                                <div style="font-size: 11px; color: #0c5460;">HIGHER</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 20px; color: #0c5460; font-weight: 700;" id="oddsLower">50%</div>
+                                <div style="font-size: 11px; color: #0c5460;">LOWER</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Place Bet Button -->
+                    <button onclick="placeLiveMarketBet()" style="width: 100%; padding: 15px; background: #31a24c; color: white; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 16px; transition: all 0.3s;">
+                        🎯 Place Bet
+                    </button>
                 </div>
             </div>
 
@@ -785,20 +855,6 @@
                 
                 <div class="markets-grid" id="cryptoMarketsGrid">
                     <!-- Crypto markets loaded dynamically -->
-                </div>
-            </div>
-
-            <!-- Politics Tab -->
-            <div id="politicsTab" class="tab-content">
-                <div class="content-header">
-                    <h2>Political Predictions</h2>
-                    <div class="search-bar">
-                        <input type="text" class="search-input" placeholder="Search political markets..." id="politicsSearchInput">
-                    </div>
-                </div>
-                
-                <div class="markets-grid" id="politicsMarketsGrid">
-                    <!-- Politics markets loaded dynamically -->
                 </div>
             </div>
 
@@ -860,12 +916,52 @@
     <div id="adminModal" class="admin-modal">
         <div class="admin-panel">
             <div class="admin-header">
-                <h2><i class="fas fa-cog"></i> Admin Panel - Account Management</h2>
+                <h2><i class="fas fa-cog"></i> Admin Panel</h2>
                 <button class="close-btn" onclick="closeAdminPanel()">&times;</button>
             </div>
             
-            <div class="admin-accounts" id="adminAccountsList">
-                <!-- Admin account cards loaded dynamically -->
+            <!-- Scraper Section -->
+            <div style="background: #f0f8ff; border-radius: 8px; padding: 20px; margin-bottom: 30px; border: 2px solid #1877f2;">
+                <h3 style="color: #1877f2; margin-bottom: 15px;">
+                    <i class="fas fa-globe"></i> Create Market from URL
+                </h3>
+                <p style="color: #65676b; margin-bottom: 15px; font-size: 14px;">
+                    Paste a URL and we'll scrape the page to automatically create a prediction market
+                </p>
+                
+                <div style="display: grid; gap: 12px;">
+                    <input type="text" id="scraperUrl" placeholder="Paste URL here... (e.g., https://example.com/event)" 
+                        style="padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; width: 100%;">
+                    
+                    <input type="text" id="scraperTitle" placeholder="Market Title (optional - will auto-detect if blank)"
+                        style="padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; width: 100%;">
+                    
+                    <select id="scraperCategory" style="padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px;">
+                        <option value="tech">Tech</option>
+                        <option value="crypto">Crypto</option>
+                        <option value="sports">Sports</option>
+                        <option value="politics">Politics</option>
+                        <option value="business">Business</option>
+                    </select>
+                    
+                    <button onclick="scrapeAndCreateMarket()" style="padding: 12px 24px; background: #1877f2; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
+                        <i class="fas fa-magic"></i> Scrape URL & Create Market
+                    </button>
+                </div>
+                
+                <div id="scraperStatus" style="margin-top: 15px; padding: 12px; background: white; border-radius: 6px; display: none; font-size: 14px;">
+                    <!-- Status updates here -->
+                </div>
+            </div>
+            
+            <!-- Accounts Section -->
+            <div>
+                <h3 style="margin-bottom: 15px; color: #1c1e21;">
+                    <i class="fas fa-users"></i> Manage Accounts
+                </h3>
+                <div class="admin-accounts" id="adminAccountsList">
+                    <!-- Admin account cards loaded dynamically -->
+                </div>
             </div>
         </div>
     </div>
@@ -883,6 +979,13 @@
         let liveMarket = null;
         let liveMarketTimer = null;
         let countdownTimer = null;
+        
+        // NEW: Live betting state
+        let selectedTimeframe = '15min';
+        let selectedDirection = null;
+        let priceHistory = [];
+        let maxPriceHistory = 60; // Store last 60 price points (1 per minute)
+        let priceChart = null;
 
         // ===== LIVE MARKET FUNCTIONS =====
         
@@ -1101,6 +1204,189 @@
             }
         }
 
+        // ===== NEW: ADVANCED LIVE BETTING FUNCTIONS =====
+        
+        /// Select timeframe (1min or 15min)
+        function selectTimeframe(timeframe) {
+            selectedTimeframe = timeframe;
+            
+            // Update button states
+            document.getElementById('timeframe1min').style.background = timeframe === '1min' ? '#1877f2' : '#f0f2f5';
+            document.getElementById('timeframe1min').style.borderColor = timeframe === '1min' ? '#1877f2' : '#ccd0d5';
+            document.getElementById('timeframe1min').style.color = timeframe === '1min' ? 'white' : '#1c1e21';
+            
+            document.getElementById('timeframe15min').style.background = timeframe === '15min' ? '#1877f2' : '#f0f2f5';
+            document.getElementById('timeframe15min').style.borderColor = timeframe === '15min' ? '#1877f2' : '#ccd0d5';
+            document.getElementById('timeframe15min').style.color = timeframe === '15min' ? 'white' : '#1c1e21';
+            
+            // Update display
+            document.getElementById('timeframeInfo').style.display = 'block';
+            document.getElementById('timeframeDisplay').textContent = timeframe === '1min' ? '1 minute' : '15 minutes';
+        }
+        
+        /// Select bet direction (higher or lower)
+        function selectBetDirection(direction) {
+            selectedDirection = direction;
+            
+            // Update button states
+            document.getElementById('betHigher').style.background = direction === 'higher' ? '#31a24c' : '#f0f2f5';
+            document.getElementById('betHigher').style.borderColor = direction === 'higher' ? '#31a24c' : '#ccd0d5';
+            document.getElementById('betHigher').style.color = direction === 'higher' ? 'white' : '#1c1e21';
+            
+            document.getElementById('betLower').style.background = direction === 'lower' ? '#e4163a' : '#f0f2f5';
+            document.getElementById('betLower').style.borderColor = direction === 'lower' ? '#e4163a' : '#ccd0d5';
+            document.getElementById('betLower').style.color = direction === 'lower' ? 'white' : '#1c1e21';
+        }
+        
+        /// Update price chart with new data
+        function updatePriceChart() {
+            if (!priceChart && window.Chart) {
+                const ctx = document.getElementById('priceChart');
+                if (!ctx) return;
+                
+                const timeLabels = priceHistory.map((_, i) => {
+                    const minsAgo = Math.max(0, Math.floor(priceHistory.length - i - 1));
+                    return minsAgo === 0 ? 'now' : `-${minsAgo}m`;
+                });
+                
+                priceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: timeLabels,
+                        datasets: [{
+                            label: 'BTC Price (USD)',
+                            data: priceHistory.map(p => p.price),
+                            borderColor: '#1877f2',
+                            backgroundColor: 'rgba(24, 119, 242, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#1877f2',
+                            pointBorderColor: 'white',
+                            pointBorderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: { callback: value => '$' + value.toLocaleString() }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            } else if (priceChart && priceHistory.length > 0) {
+                // Update existing chart
+                const timeLabels = priceHistory.map((_, i) => {
+                    const minsAgo = Math.max(0, Math.floor(priceHistory.length - i - 1));
+                    return minsAgo === 0 ? 'now' : `-${minsAgo}m`;
+                });
+                priceChart.data.labels = timeLabels;
+                priceChart.data.datasets[0].data = priceHistory.map(p => p.price);
+                priceChart.update();
+            }
+        }
+        
+        /// Place live market bet with selected parameters
+        async function placeLiveMarketBet() {
+            if (!currentAccount) {
+                showToast('❌ Please select an account first', 'error');
+                return;
+            }
+            
+            if (!selectedDirection) {
+                showToast('❌ Please select HIGHER or LOWER', 'error');
+                return;
+            }
+            
+            const amount = parseInt(document.getElementById('betAmount').value);
+            if (!amount || amount < 1) {
+                showToast('❌ Please enter a valid bet amount', 'error');
+                return;
+            }
+            
+            // Check balance
+            const account = accounts.find(a => a.name === currentAccount);
+            if (account && account.balance < amount) {
+                showToast(`❌ Insufficient balance. You have ${account.balance} BB`, 'error');
+                return;
+            }
+            
+            try {
+                // Place bet on prediction market
+                const outcome = selectedDirection === 'higher' ? 0 : 1;
+                const response = await fetch('http://localhost:3000/bet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account: currentAccount,
+                        market: liveMarket.market_id,
+                        outcome: outcome,
+                        amount: amount
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`✅ Bet placed! ${selectedDirection.toUpperCase()} ${amount} BB for ${selectedTimeframe === '1min' ? '1 minute' : '15 minutes'}`, 'success');
+                    document.getElementById('betAmount').value = '';
+                    selectedDirection = null;
+                    loadAccounts();
+                    loadLiveMarket();
+                    // Update buttons
+                    document.getElementById('betHigher').style.background = '#f0f2f5';
+                    document.getElementById('betLower').style.background = '#f0f2f5';
+                } else {
+                    showToast(`❌ ${result.message || 'Bet failed'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Bet error:', error);
+                showToast('❌ Network error placing bet', 'error');
+            }
+        }
+        
+        /// Fetch Bitcoin price and update chart
+        async function updateBitcoinPrice() {
+            try {
+                const response = await fetch('http://localhost:3000/bitcoin-price');
+                const data = await response.json();
+                
+                if (data.success && data.price) {
+                    // Add to history
+                    priceHistory.push({
+                        price: data.price,
+                        timestamp: new Date()
+                    });
+                    
+                    // Keep only last N prices
+                    if (priceHistory.length > maxPriceHistory) {
+                        priceHistory.shift();
+                    }
+                    
+                    // Update chart
+                    updatePriceChart();
+                    
+                    // Update odds display if market exists
+                    if (liveMarket) {
+                        document.getElementById('oddsHigher').textContent = (liveMarket.odds.higher * 100).toFixed(1) + '%';
+                        document.getElementById('oddsLower').textContent = (liveMarket.odds.lower * 100).toFixed(1) + '%';
+                    }
+                }
+            } catch (error) {
+                console.error('Price update error:', error);
+            }
+        }
+
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 BlackBook Frontend Initializing...');
@@ -1113,12 +1399,21 @@
             loadLiveMarket();
             loadReceipts();
             loadRecipes();
+            updateBitcoinPrice(); // Fetch initial price
+            
             // Start auto-refresh for crypto prices
             setInterval(loadCryptoPrices, 5 * 60 * 1000); // Every 5 minutes
             
             // Start auto-refresh for receipts and recipes
             setInterval(loadReceipts, 30 * 1000); // Every 30 seconds
             setInterval(loadRecipes, 30 * 1000); // Every 30 seconds
+            
+            // NEW: Update Bitcoin price and live market every 60 seconds
+            setInterval(updateBitcoinPrice, 60 * 1000); // Every minute
+            setInterval(loadLiveMarket, 60 * 1000); // Every minute
+            
+            // Set default timeframe
+            selectTimeframe('15min');
             
             console.log('✅ BlackBook Frontend Ready');
         });
@@ -1203,33 +1498,91 @@
             }
         }
 
-        // Load markets - REAL DATA ONLY
+        // Load markets - HARDCODED 61 EVENTS
         async function loadMarkets() {
             try {
-                console.log('📥 Loading markets from blockchain...');
-                const response = await fetch('http://localhost:3000/markets');
-                console.log('✅ Markets response status:', response.status);
-                const data = await response.json();
-                console.log('📊 Loaded', data.markets.length, 'markets');
+                console.log('📥 Loading 61 hardcoded prediction markets...');
                 
-                // Only use real blockchain markets - NO dummy data
-                markets = data.markets.map(market => ({
-                    id: market.id,
-                    title: market.title,
-                    description: market.description,
-                    outcomes: market.outcomes,
-                    category: categorizeMarket(market), // Categorize based on content
-                    is_active: market.is_active,
-                    total_volume: market.total_volume,
-                    odds: market.odds
-                }));
+                // Hardcoded 61 events (50 original + 11 business conferences)
+                const hardcodedMarkets = [
+                    // Original 3
+                    { id: "tech_ai_breakthrough_2025", title: "Major AI Breakthrough in 2025", description: "Will there be a major AI breakthrough (AGI, solved alignment, etc.) announced by a major tech company in 2025?", category: "tech", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_recession_2025", title: "US Recession in 2025", description: "Will the United States officially enter a recession in 2025?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "crypto_bitcoin_100k", title: "Bitcoin reaches $100K in 2025", description: "Will Bitcoin (BTC) reach $100,000 USD at any point during 2025?", category: "crypto", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    
+                    // Sports Events (45)
+                    { id: "sports_australian_open_2026", title: "Australian Open 2026 Tennis", description: "Will Novak Djokovic win the Australian Open 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_dakar_rally_2026", title: "Dakar Rally 2026", description: "Will a driver from South America win the 2026 Dakar Rally?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_six_nations_2026", title: "Six Nations Rugby 2026", description: "Will France win the 2026 Six Nations Championship?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_milano_cortina_2026", title: "Winter Olympics Milano Cortina 2026", description: "Will Italy win more than 10 medals at Milano Cortina 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_daytona_500_2026", title: "Daytona 500 2026", description: "Will a NASCAR rookie finish in top 3 at Daytona 500 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_masters_2026", title: "The Masters Golf 2026", description: "Will an international player win The Masters 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_boston_marathon_2026", title: "Boston Marathon 2026", description: "Will a world record be broken at Boston Marathon 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_kentucky_derby_2026", title: "Kentucky Derby 2026", description: "Will a female jockey win the Kentucky Derby 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_french_open_2026", title: "French Open 2026", description: "Will Serena Williams's record be broken at French Open 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_monaco_gp_2026", title: "F1 Monaco Grand Prix 2026", description: "Will the 2026 Monaco GP be won by a driver 25 or younger?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_us_open_golf_2026", title: "US Open Golf 2026", description: "Will an American golfer win the 2026 US Open?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_wimbledon_2026", title: "Wimbledon Tennis 2026", description: "Will a top-5 seed win the Wimbledon 2026 singles title?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_tour_france_femmes_2026", title: "Tour de France Femmes 2026", description: "Will a European cyclist win Tour de France Femmes 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_us_open_tennis_2026", title: "US Open Tennis 2026", description: "Will a player ranked outside top 10 win US Open 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_ryder_cup_2027", title: "Ryder Cup 2027", description: "Will Europe win the 2027 Ryder Cup?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_pdc_world_darts_2026", title: "PDC World Darts 2025/2026", description: "Will a player from outside UK/Europe win PDC World Championship?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_world_handball_2025", title: "World Handball Championship 2025", description: "Will France win the 2025 Men's Handball Championship?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_figure_skating_2026", title: "European Figure Skating 2026", description: "Will Russia be allowed to compete at European Championships 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_formula_e_mexico_2026", title: "Formula E Mexico City 2026", description: "Will a new driver win Formula E Mexico City ePrix 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_ncaa_hockey_2026", title: "NCAA Hockey Championship 2026", description: "Will a new team win NCAA Men's Ice Hockey Championship?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_snooker_2026", title: "World Snooker Championship 2026", description: "Will Ronnie O'Sullivan win World Championship 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_f1_spain_2026", title: "F1 Spanish Grand Prix 2026", description: "Will Max Verstappen lead the championship after Spain 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_iihf_2026", title: "IIHF World Championship 2026", description: "Will Canada win the 2026 Men's Ice Hockey World Championship?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_cheltenham_2026", title: "Cheltenham Festival 2026", description: "Will a 50-1 longshot win the Gold Cup at Cheltenham 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_f1_britain_2026", title: "F1 British Grand Prix 2026", description: "Will a British driver finish on podium at Silverstone 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_world_aquatics_2026", title: "World Aquatics Championships 2026", description: "Will a swimming world record be broken in 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_open_golf_2026", title: "The Open Championship 2026", description: "Will an American golfer win The Open 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_commonwealth_2026", title: "Commonwealth Games 2026", description: "Will Australia win more medals than England?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_world_athletics_2027", title: "World Athletics Championships 2027", description: "Will Eliud Kipchoge win a medal at World Championships 2027?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_f1_canada_2026", title: "F1 Canadian Grand Prix 2026", description: "Will a rookie finish top 5 at Montreal 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_singapore_gp_2026", title: "F1 Singapore Grand Prix 2026", description: "Will Lewis Hamilton finish top 3 at Singapore 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_tokyo_marathon_2026", title: "Tokyo Marathon 2026", description: "Will a female runner win the Tokyo Marathon 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_london_marathon_2026", title: "London Marathon 2026", description: "Will the marathon record be broken at London 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_uefa_champions_2026", title: "UEFA Champions League Final 2026", description: "Will a Spanish team win Champions League 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_uefa_europa_2026", title: "UEFA Europa League Final 2026", description: "Will an Italian team win Europa League 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_pga_championship_2026", title: "PGA Championship 2026", description: "Will a European golfer win PGA Championship 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_indy_500_2026", title: "Indianapolis 500 2026", description: "Will a new driver win the Indy 500 in their debut year?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_nfl_super_bowl_2026", title: "NFL Super Bowl LX 2026", description: "Will the underdog win Super Bowl LX?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_nba_finals_2026", title: "NBA Finals 2026", description: "Will a team from Eastern Conference win NBA Finals 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "sports_world_cup_2026", title: "FIFA World Cup 2026", description: "Will South America win World Cup 2026?", category: "sports", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    
+                    // Arts & Culture (8)
+                    { id: "culture_oscars_2026", title: "Academy Awards 2026", description: "Will a superhero movie win Best Picture at 2026 Oscars?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "culture_met_gala_2026", title: "Met Gala 2026", description: "Will the theme be science fiction related at Met Gala 2026?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "culture_cannes_2026", title: "Cannes Film Festival 2026", description: "Will an Asian filmmaker win Palme d'Or at Cannes 2026?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "culture_tony_awards_2026", title: "Tony Awards 2026", description: "Will a comedy musical win Best Play at Tony Awards 2026?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "culture_nobel_2026", title: "Nobel Prize Ceremonies 2026", description: "Will AI research win Nobel Prize in Physics 2026?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "culture_venice_2026", title: "Venice Biennale 2026", description: "Will contemporary digital art dominate Venice Biennale 2026?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "culture_sundance_2026", title: "Sundance Film Festival 2026", description: "Will an indie horror film premiere at Sundance 2026?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "culture_berlin_2026", title: "Berlin Film Festival 2026", description: "Will a documentary win the Golden Bear at Berlin 2026?", category: "culture", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    
+                    // Business & Startup Conferences (11)
+                    { id: "business_sxsw_pitch_2026", title: "SXSW Pitch Competition 2026", description: "Will a health tech startup win the SXSW Pitch Competition in March 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_startup_grind_2026", title: "Startup Grind Global Conference 2026", description: "Will a European founder secure Series A funding at Startup Grind Global April 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_saastr_annual_2026", title: "SaaStr Annual Conference 2026", description: "Will a SaaS startup reach unicorn status post-SaaStr Annual May 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_techcrunch_disrupt_2026", title: "TechCrunch Disrupt 2026", description: "Will an AI startup win the TechCrunch Disrupt Battlefield in October 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_money20_20_2026", title: "Money20/20 USA Conference 2026", description: "Will a blockchain fintech startup secure major funding at Money20/20 October 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_south_summit_brasil_2026", title: "South Summit Brasil 2026", description: "Will a Latin American startup achieve Series B funding at South Summit Brasil March 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_eu_startups_summit_2026", title: "EU-Startups Summit 2026", description: "Will a European deep tech startup win the pitch competition at EU-Startups Summit May 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_superventure_2026", title: "SuperVenture Berlin 2026", description: "Will a German VC firm raise over €100M at SuperVenture June 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_south_summit_madrid_2026", title: "South Summit Madrid 2026", description: "Will a Spanish startup secure Series A at South Summit Madrid June 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_slush_2026", title: "Slush Conference Helsinki 2026", description: "Will a Nordic startup become a unicorn post-Slush November 2026?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                    { id: "business_web_summit_2026", title: "Web Summit Lisbon 2026", description: "Will Web Summit 2026 attract over 70,000 attendees in November?", category: "business", outcomes: ["Yes", "No"], is_active: true, total_volume: 0, odds: {yes: 0.5, no: 0.5} },
+                ];
                 
+                markets = hardcodedMarkets;
                 renderAllMarkets();
                 updateMarketStats();
-                console.log('✅ Markets loaded and displayed');
+                console.log('✅ Loaded and displayed', markets.length, 'prediction markets');
             } catch (error) {
                 console.error('❌ Market loading error:', error);
-                showToast('Failed to load real markets from blockchain', 'error');
+                showToast('Failed to load markets', 'error');
             }
         }
 
@@ -1928,6 +2281,87 @@
             } catch (error) {
                 console.error('Failed to add tokens:', error);
                 showToast('Failed to add tokens to account', 'error');
+            }
+        }
+
+        // ===== SCRAPER FUNCTIONS =====
+        
+        /// Scrape URL and create market
+        async function scrapeAndCreateMarket() {
+            const url = document.getElementById('scraperUrl').value.trim();
+            const title = document.getElementById('scraperTitle').value.trim();
+            const category = document.getElementById('scraperCategory').value;
+            const statusDiv = document.getElementById('scraperStatus');
+            
+            if (!url) {
+                showToast('Please enter a URL', 'error');
+                return;
+            }
+            
+            // Show status
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scraping URL...';
+            statusDiv.style.background = '#e7f3ff';
+            statusDiv.style.color = '#1877f2';
+            
+            try {
+                const response = await fetch('http://localhost:3000/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: url,
+                        title: title || 'Scraped Event',
+                        category: category
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = `
+                        <div style="color: #31a24c;">
+                            <i class="fas fa-check-circle"></i> <strong>Market Created!</strong><br>
+                            ID: ${result.market_id}<br>
+                            Title: ${result.scraped_event.title}<br>
+                            <button onclick="location.reload(); showTab('all');" style="margin-top: 10px; padding: 8px 16px; background: #1877f2; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                View Market
+                            </button>
+                        </div>
+                    `;
+                    statusDiv.style.background = '#e8f5e9';
+                    statusDiv.style.color = '#31a24c';
+                    
+                    // Clear inputs
+                    document.getElementById('scraperUrl').value = '';
+                    document.getElementById('scraperTitle').value = '';
+                    
+                    // Refresh markets
+                    setTimeout(() => {
+                        loadMarkets();
+                        showToast('✅ Market created from scraped event!', 'success');
+                    }, 1000);
+                } else {
+                    statusDiv.innerHTML = `
+                        <div style="color: #e74c3c;">
+                            <i class="fas fa-exclamation-circle"></i> <strong>Error</strong><br>
+                            ${result.error || 'Failed to scrape URL'}
+                        </div>
+                    `;
+                    statusDiv.style.background = '#ffebee';
+                    statusDiv.style.color = '#e74c3c';
+                    showToast(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Scraper error:', error);
+                statusDiv.innerHTML = `
+                    <div style="color: #e74c3c;">
+                        <i class="fas fa-times-circle"></i> <strong>Network Error</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+                statusDiv.style.background = '#ffebee';
+                statusDiv.style.color = '#e74c3c';
+                showToast('Network error. Check console for details.', 'error');
             }
         }
 

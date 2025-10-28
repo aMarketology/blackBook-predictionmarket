@@ -1,0 +1,2 @@
+fn(axum::extract::State<Arc<std::sync::Mutex<AppState>>>, axum::extract::Path<std::string::String>) -> impl std::future::Future<Output = Json<Value>> {scrape_event_source}
+fn(axum::extract::State<Arc<std::sync::Mutex<AppState>>>, axum::extract::Path<std::string::String>) -> impl std::future::Future<Output = Json<Value>> {scrape_event_source}: Handler<_, _>

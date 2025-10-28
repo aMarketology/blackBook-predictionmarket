@@ -558,7 +558,7 @@ impl Ledger {
         // Calculate payouts
         let mut payouts = Vec::new();
 
-        for (user, bet_amount) in &market.bettors_per_option[winning_option] {
+        for (user, _bet_amount) in &market.bettors_per_option[winning_option] {
             let payout = market.calculate_payout(user, winning_option);
             if payout > 0.0 {
                 payouts.push((user.clone(), payout));
