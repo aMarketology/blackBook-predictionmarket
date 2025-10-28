@@ -1,433 +1,344 @@
-# 🏆 BlackBook Prediction Market - Layer 1 Integration
+# 🤖 BlackBook URL Scraping AI Agent
 
-A sophisticated prediction market platform for business and technology events, integrated with BlackBook Layer 1 blockchain and 21,000 BB tokens.
+An intelligent AI agent that scrapes URLs, extracts event data, and automatically creates prediction markets on your BlackBook blockchain.
+
+## 🎯 What It Does
+
+1. **Scrapes URLs** - Extracts content from any website
+2. **AI Analysis** - Uses OpenAI to identify prediction-worthy events
+3. **Market Creation** - Automatically creates markets on your blockchain
+4. **REST API** - Provides endpoints for integration
 
 ## 🚀 Quick Start
 
-### Option 1: Auto-Start (Recommended)
+### Prerequisites
+
+- Python 3.8+
+- OpenAI API key ([get one here](https://platform.openai.com/api-keys))
+- BlackBook blockchain running on port 3000
+
+### Installation
+
+1. **Clone and navigate to directory**
 ```bash
-# Double-click start_blackbook.bat or run:
-start_blackbook.bat
+cd "c:\Users\Allied Gaming\Documents\GitHub\templates\ai agent"
 ```
 
-### Option 2: Manual Start
+2. **Set up environment**
 ```bash
-# Terminal 1: Start API Server
-cargo run
+# Copy environment template
+copy .env.example .env
 
-# Terminal 2: Start Frontend Server  
-python serve_frontend.py
+# Edit .env and add your OpenAI API key
+notepad .env
 ```
 
-## 📋 Access Points
+3. **Run the agent**
+```bash
+# Windows
+start_agent.bat
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| **Layer 1 Interface** | http://localhost:8080/blackbook-layer1.html | Advanced blockchain integration |
-| **Basic Interface** | http://localhost:8080/index.html | Simple testing interface |
-| **API Server** | http://localhost:3000 | Backend REST API |
-| **API Documentation** | http://localhost:3000/ | API endpoints and features |
+# Linux/Mac
+chmod +x start_agent.sh
+./start_agent.sh
+```
 
-## 🎯 Testing Features
+The agent will be available at: **http://localhost:8082**
 
-### 👥 8 Test Accounts
-Control 8 different accounts simultaneously for comprehensive testing:
+## 📚 API Endpoints
 
-1. **Tech Analyst** - Focused on technology predictions
-2. **Crypto Trader** - Cryptocurrency market expert  
-3. **AI Researcher** - Artificial intelligence developments
-4. **VC Investor** - Venture capital and startup funding
-5. **Startup Founder** - Product launches and business events
-6. **Market Maker** - Provides liquidity to markets
-7. **News Editor** - Creates markets from news events
-8. **Whale Trader** - Large volume trading (extra BB tokens)
+### POST /scrape
+Scrape a URL and create a prediction market
 
-### 💰 BlackBook Token Distribution
-- **Total Supply**: 21,000 BB tokens
-- **Per Account**: ~2,625 BB tokens (with variation)
-- **Whale Account**: Extra 2,000 BB tokens for large bets
-- **Admin Controls**: Redistribute, fund, and reset balances
+**Request:**
+```json
+{
+  "url": "https://techcrunch.com/2024/01/15/openai-announces-gpt5",
+  "category": "tech",
+  "auto_create_market": true
+}
+```
 
-## 📊 Sample Prediction Markets
+**Response:**
+```json
+{
+  "success": true,
+  "market_id": "market_123",
+  "event_data": {
+    "title": "Will GPT-5 be released before June 2025?",
+    "description": "OpenAI announced GPT-5 development...",
+    "category": "tech",
+    "options": ["Yes, before June 2025", "No, after June 2025", "Cancelled/Delayed"],
+    "confidence": 0.85,
+    "source_url": "https://techcrunch.com/..."
+  },
+  "message": "Market created successfully"
+}
+```
 
-### Stock & Market Predictions
-- **NVIDIA $200 Target**: Will NVDA hit $200 by end of 2025?
-- **Apple Vision Pro 2**: New product announcement in 2025?
-- **S&P 500 Milestone**: Index above 6000 by year end?
-- **$4T Market Cap Race**: First company to reach $4 trillion?
+### POST /analyze
+Analyze a URL without creating a market
 
-### Cryptocurrency Events  
-- **Bitcoin $150k**: BTC crossing major milestone in 2025?
-- **Regulatory Changes**: US crypto regulation passage?
-- **DeFi Adoption**: Major institutional DeFi integration?
+**Request:**
+```json
+{
+  "url": "https://example.com/article",
+  "category": "crypto"
+}
+```
 
-### Technology Milestones
-- **OpenAI GPT-5**: Release before July 2025?
-- **Tesla FSD**: Full self-driving achievement by Q3?
-- **AGI Timeline**: Artificial General Intelligence by 2030?
+### GET /markets
+List all active prediction markets
 
-### Business Events
-- **Microsoft-Discord**: Major acquisition in 2025?
-- **Stripe IPO**: Public offering timeline?
-- **Apple-Tesla Partnership**: Strategic alliance announcement?
+### GET /health
+Check agent health status
 
-## 🛠️ Platform Features
+## 💡 Usage Examples
 
-### Advanced Trading
-- **Order Types**: Market, Limit, Stop-Loss orders
-- **Live Odds**: Real-time probability updates
-- **Cash Out**: Early position closing
-- **Portfolio Tracking**: P&L monitoring across accounts
+### Using cURL
 
-### Risk Management  
-- **Position Limits**: Maximum exposure per user
-- **Circuit Breakers**: Automatic market suspension
-- **Balance Verification**: Blockchain balance checks
-- **Transaction History**: Complete audit trail
+```bash
+# Scrape and create market
+curl -X POST http://localhost:8082/scrape \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://techcrunch.com/article"}'
 
-### Blockchain Integration
-- **Layer 1 Connection**: Direct BlackBook blockchain integration
-- **Wallet Management**: Switch between 8 test accounts
-- **Transaction Verification**: All bets recorded on-chain
-- **Smart Contracts**: Automated settlement and payouts
+# Analyze without creating market
+curl -X POST http://localhost:8082/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com/article", "auto_create_market": false}'
 
-## 🔧 Admin Controls
+# Get all markets
+curl http://localhost:8082/markets
+```
 
-### Market Management
-- **Create Sample Markets**: Generate test prediction markets
-- **Fund All Accounts**: Distribute BB tokens to all accounts
-- **Check Balances**: Verify current token distribution
-- **Reset Blockchain**: Clear all transactions and restart
+### Using Python
 
-### Development Tools
-- **Deploy Test Contract**: Initialize smart contracts
-- **Export Test Data**: Download complete test session
-- **Monitor Transactions**: Track all blockchain activity
-- **Debug Mode**: Detailed logging and error reporting
+```python
+import requests
 
-## 🎮 How to Test
+# Scrape URL and create market
+response = requests.post('http://localhost:8082/scrape', json={
+    'url': 'https://techcrunch.com/article',
+    'category': 'tech',
+    'auto_create_market': True
+})
 
-### 1. Basic Setup
-1. Run `start_blackbook.bat` to start both servers
-2. Open http://localhost:8080/blackbook-layer1.html
-3. Click "Connect to BlackBook Layer 1"
-4. Verify connection status (API, Blockchain, Wallet all green)
+result = response.json()
+print(f"Market created: {result['market_id']}")
+```
 
-### 2. Create Markets
-1. Click "Create Sample Markets" in admin panel
-2. Wait for markets to be created (watch console for progress)
-3. Refresh to see new markets appear
+### Using JavaScript
 
-### 3. Switch Accounts
-1. Click any of the 8 test accounts in the sidebar
-2. Watch wallet address and balance update
-3. Each account has different BB token amounts
+```javascript
+// Scrape URL and create market
+fetch('http://localhost:8082/scrape', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    url: 'https://techcrunch.com/article',
+    category: 'tech',
+    auto_create_market: true
+  })
+})
+.then(res => res.json())
+.then(data => console.log('Market created:', data.market_id));
+```
 
-### 4. Place Bets
-1. Select a market and outcome
-2. Enter bet amount (in BB tokens)
-3. Preview shows potential payout and profit
-4. Click "Place Bet" to execute blockchain transaction
-5. Watch for transaction confirmation
+## 🔧 Configuration
 
-### 5. Monitor Results
-1. Check portfolio for open positions
-2. Monitor market statistics and volume
-3. Track P&L across different accounts
-4. Export data for analysis
+Edit `.env` file:
+
+```bash
+# Required: OpenAI API Key
+OPENAI_API_KEY=sk-your-key-here
+
+# Optional: Blockchain API URL (default: http://localhost:3000)
+BLOCKCHAIN_API_URL=http://localhost:3000
+
+# Optional: Agent port (default: 8082)
+AGENT_PORT=8082
+```
 
 ## 🏗️ Architecture
 
-### Backend (Rust)
-- **Axum Web Framework**: High-performance async API
-- **Supabase Integration**: PostgreSQL database with real-time features
-- **Blockchain Module**: Layer 1 transaction handling
-- **CSMM Algorithm**: Constant Sum Market Maker for pricing
-
-### Frontend (HTML/JS)
-- **Ethers.js**: Blockchain interaction library
-- **Real-time Updates**: WebSocket connections for live data
-- **Responsive Design**: Works on desktop and mobile
-- **Multi-account Support**: Simultaneous account management
-
-### Blockchain Layer
-- **BlackBook Layer 1**: Custom blockchain for BB tokens
-- **Smart Contracts**: Market creation and settlement
-- **Transaction Verification**: All bets recorded immutably
-- **Token Economics**: 21,000 BB total supply
-
-## 📈 Market Categories
-
-| Category | Icon | Examples |
-|----------|------|----------|
-| **Earnings** | 📊 | Quarterly reports, revenue targets |
-| **Product Launch** | 🚀 | iPhone releases, software launches |
-| **Acquisition** | 🤝 | M&A announcements, buyouts |
-| **Stock Movement** | 📈 | Price targets, market milestones |
-| **Crypto** | ₿ | Bitcoin prices, regulatory events |
-| **AI Milestone** | 🤖 | AGI timeline, breakthrough achievements |
-| **Index Movement** | 📉 | S&P 500, NASDAQ targets |
-| **Regulation** | ⚖️ | Government policy, legal changes |
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-**API Server Not Starting**
-```bash
-# Check if port 3000 is available
-netstat -an | findstr :3000
-
-# Run with debug logging
-set RUST_LOG=debug & cargo run
+```
+┌─────────────────┐
+│   Web Browser   │
+│   or API Call   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────┐
+│  URL Scraping AI Agent      │
+│  (serve_frontend.py)        │
+│                             │
+│  ┌────────────────────┐    │
+│  │  URLScraper        │    │
+│  │  - BeautifulSoup   │    │
+│  │  - Extract content │    │
+│  └──────┬─────────────┘    │
+│         │                   │
+│         ▼                   │
+│  ┌────────────────────┐    │
+│  │  EventAnalyzer     │    │
+│  │  - OpenAI GPT-4    │    │
+│  │  - Extract events  │    │
+│  └──────┬─────────────┘    │
+│         │                   │
+│         ▼                   │
+│  ┌────────────────────┐    │
+│  │ BlockchainConnector│    │
+│  │ - Create markets   │    │
+│  └──────┬─────────────┘    │
+└─────────┼───────────────────┘
+          │
+          ▼
+┌─────────────────────────────┐
+│  BlackBook Blockchain       │
+│  (Rust - port 3000)         │
+│  - Prediction markets       │
+│  - Escrow & settlements     │
+└─────────────────────────────┘
 ```
 
-**Frontend Connection Errors**
-```bash
-# Verify API server is running
-curl http://localhost:3000/health
+## 🎭 Features
 
-# Check CORS settings in main.rs
+### Intelligent Content Extraction
+- Removes ads, navigation, and clutter
+- Extracts main article content
+- Captures metadata (author, date, images)
+
+### AI-Powered Event Detection
+- Identifies prediction-worthy events
+- Creates clear, time-bound questions
+- Generates multiple outcome options
+- Assigns confidence scores
+
+### Blockchain Integration
+- Direct API integration
+- Automatic market creation
+- Real-time status updates
+
+### Fallback Mode
+- Works without OpenAI (basic mode)
+- Graceful degradation
+- Manual event creation option
+
+## 📊 Categories
+
+The agent supports these categories:
+- `tech` - Technology and software
+- `crypto` - Cryptocurrency and blockchain
+- `business` - Business and finance
+- `politics` - Political events
+- `sports` - Sports outcomes
+- `general` - General events
+
+## 🛠️ Development
+
+### Project Structure
+
+```
+ai agent/
+├── serve_frontend.py       # Main agent code
+├── requirements.txt        # Python dependencies
+├── .env.example           # Environment template
+├── start_agent.bat        # Windows startup script
+├── start_agent.sh         # Linux/Mac startup script
+├── README_AGENT.md        # This file
+└── src/                   # Rust blockchain (separate)
 ```
 
-**Blockchain Connection Failed**
-```bash
-# Verify BlackBook Layer 1 RPC is running
-curl -X POST -H "Content-Type: application/json" --data "{\"jsonrpc\":\"2.0\",\"method\":\"eth_blockNumber\",\"params\":[],\"id\":1}" http://localhost:8545
-```
-
-**Transaction Failures**
-- Check account has sufficient BB tokens
-- Verify market is still open for betting
-- Ensure outcome selection is valid
-- Check blockchain connection status
-
-### Development Mode
+### Running in Development
 
 ```bash
-# Enable debug logging
-set RUST_LOG=debug
+# Install dependencies
+pip install -r requirements.txt
 
-# Run with hot reload
-cargo watch -x run
-
-# Monitor database
-# Check Supabase dashboard for real-time updates
+# Run with auto-reload
+uvicorn serve_frontend:app --reload --port 8082
 ```
 
-## 🎉 Success Indicators
+### API Documentation
 
-When everything is working correctly, you should see:
+Interactive API docs available at:
+- Swagger UI: http://localhost:8082/docs
+- ReDoc: http://localhost:8082/redoc
 
-✅ **Connection Status**: All three dots (API, Blockchain, Wallet) are green  
-✅ **Account Switching**: Seamless switching between 8 test accounts  
-✅ **Market Creation**: Sample markets appear after clicking "Create Sample Markets"  
-✅ **Betting**: Successful bet placement with transaction hash  
-✅ **Balance Updates**: BB token balances decrease after bets  
-✅ **Real-time Updates**: Market statistics update after bets  
+## 🔍 Troubleshooting
 
-## 🔮 Next Steps
+### OpenAI API Not Working
+- Check your API key in `.env`
+- Verify you have credits: https://platform.openai.com/usage
+- Agent will work in fallback mode without OpenAI
 
-### Phase 1: Core Functionality ✅
-- [x] Basic market creation and betting
-- [x] 8-account testing interface  
-- [x] BlackBook Layer 1 integration
-- [x] BB token management
+### Blockchain Connection Failed
+- Make sure Rust backend is running: `cargo run`
+- Check it's on port 3000: http://localhost:3000
+- Verify BLOCKCHAIN_API_URL in `.env`
 
-### Phase 2: Advanced Features 🚧
-- [ ] Real-time price feeds
-- [ ] Advanced order types
-- [ ] Portfolio analytics
-- [ ] Mobile responsive design
+### URL Scraping Failed
+- Some sites block scrapers (use different URLs)
+- Check internet connection
+- Try simpler websites first
 
-### Phase 3: Production Ready 📋
-- [ ] ObjectWire.org integration
-- [ ] Security audit
-- [ ] Performance optimization
-- [ ] User documentation
+### Port Already in Use
+- Change AGENT_PORT in `.env`
+- Or kill the process using port 8082
+
+## 🚦 Status Indicators
+
+- ✅ **Enabled** - Feature is working
+- ❌ **Disabled** - Feature not configured
+- ⚠️ **Warning** - Issue detected
+- 🔍 **Scraping** - Extracting content
+- 🤖 **Analyzing** - AI processing
+- 🔗 **Creating** - Building market
+
+## 📝 Example Workflow
+
+1. **Find interesting article**
+   ```
+   https://techcrunch.com/2024/01/15/startup-x-raises-100m
+   ```
+
+2. **Send to agent**
+   ```bash
+   curl -X POST http://localhost:8082/scrape \
+     -H "Content-Type: application/json" \
+     -d '{"url": "https://techcrunch.com/..."}'
+   ```
+
+3. **Agent processes**
+   - Scrapes article content
+   - AI extracts prediction event
+   - Creates market on blockchain
+
+4. **Market is live**
+   - Users can place bets
+   - Track on your frontend
+   - Resolve when outcome known
+
+## 🎯 Best Practices
+
+1. **Use quality sources** - News sites work best
+2. **Clear events** - Look for time-bound claims
+3. **Verify markets** - Review before going live
+4. **Monitor usage** - Watch OpenAI costs
+5. **Rate limiting** - Don't spam requests
+
+## 📜 License
+
+Part of the BlackBook Prediction Market platform.
+
+## 🤝 Support
+
+For issues or questions:
+1. Check the troubleshooting section
+2. Review API documentation at `/docs`
+3. Check blockchain backend logs
 
 ---
 
-**🎯 Ready to test the future of business prediction markets!**
-
-Start with `start_blackbook.bat` and begin placing bets on tech events with real BlackBook tokens!
-  -d '{
-    "title": "Will Bitcoin reach $100k by end of 2024?",
-    "description": "Prediction on Bitcoin price reaching $100,000 USD",
-    "category": "cryptocurrency",
-    "creator": "0x1234567890123456789012345678901234567890",
-    "outcomes": ["Yes", "No"],
-    "closes_at": "2024-12-31T23:59:59Z",
-    "initial_liquidity": 1000
-  }'
-```
-
-#### Place a Bet
-```bash
-curl -X POST http://localhost:3000/api/v1/markets/{market_id}/bet \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_address": "0x1234567890123456789012345678901234567890",
-    "outcome_id": "outcome_0",
-    "amount": 100
-  }'
-```
-
-#### List Markets
-```bash
-curl "http://localhost:3000/api/v1/markets?category=cryptocurrency&limit=10"
-```
-
-## Market Mechanics
-
-### Automated Market Maker (AMM)
-
-The system uses a **Logarithmic Market Scoring Rule (LMSR)** for pricing:
-
-- **Fair Pricing**: Prices automatically adjust based on supply and demand
-- **Liquidity**: Always provides liquidity for trading
-- **Incentive Compatible**: Rewards accurate predictions
-
-### Market States
-
-- **Open**: Market is accepting bets
-- **Closed**: Market closed for betting, awaiting resolution
-- **Resolved**: Market resolved with winning outcome
-- **Cancelled**: Market cancelled (refunds issued)
-
-### Betting Process
-
-1. Users place bets on outcomes using the native token
-2. AMM calculates share price based on current market state
-3. Transaction is submitted to blockchain for verification
-4. Shares are allocated to user's position
-5. Market prices update automatically
-
-## Blockchain Integration
-
-### Local Blockchain Setup
-
-For development, you can use:
-
-**Ganache CLI:**
-```bash
-npm install -g ganache-cli
-ganache-cli --port 8545 --networkId 1337
-```
-
-**Hardhat:**
-```bash
-npm install -g hardhat
-npx hardhat node
-```
-
-### Transaction Types
-
-- **CREATE_MARKET**: Create new prediction market
-- **PLACE_BET**: Place bet on market outcome
-- **RESOLVE_MARKET**: Resolve market with winning outcome
-- **WITHDRAW**: Withdraw winnings
-
-## ObjectWire.org Integration
-
-This prediction market is designed to integrate with ObjectWire.org:
-
-1. **Topic Integration**: Markets can be created for ObjectWire topics
-2. **Outcome Resolution**: Integration with ObjectWire's verification system
-3. **User Authentication**: Compatible with ObjectWire user accounts
-4. **API Webhooks**: Real-time updates to ObjectWire platform
-
-## Development
-
-### Running Tests
-```bash
-cargo test
-```
-
-### Database Migrations
-```bash
-# Install sqlx-cli
-cargo install sqlx-cli
-
-# Run migrations manually
-sqlx migrate run
-```
-
-### Adding New Features
-
-1. **New Market Types**: Extend `MarketOutcome` enum in `market.rs`
-2. **Custom AMM**: Modify pricing algorithms in `calculate_shares_for_bet`
-3. **Additional APIs**: Add routes in `routes.rs`
-4. **Blockchain Features**: Extend `blockchain/mod.rs`
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | SQLite database path | `sqlite:blackbook.db` |
-| `BLOCKCHAIN_URL` | Blockchain RPC endpoint | `http://localhost:8545` |
-| `BLOCKCHAIN_NETWORK_ID` | Network/Chain ID | `1337` |
-| `SERVER_PORT` | Server port | `3000` |
-| `MAX_BET_AMOUNT` | Maximum bet amount | `1000000` |
-| `MIN_BET_AMOUNT` | Minimum bet amount | `1` |
-| `AMM_LIQUIDITY_PARAMETER` | AMM liquidity parameter | `100` |
-
-### Market Configuration
-
-- **Default Duration**: 1 week
-- **Minimum Duration**: 1 hour
-- **Maximum Duration**: 1 year
-- **Default Initial Liquidity**: 1000 tokens
-
-## Security
-
-- **Input Validation**: All API inputs are validated
-- **SQL Injection Protection**: Using SQLx with prepared statements
-- **CORS Configuration**: Configurable CORS for web integration
-- **Transaction Verification**: All blockchain transactions are verified
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Errors**
-   - Ensure SQLite permissions are correct
-   - Check `DATABASE_URL` in `.env`
-
-2. **Blockchain Connection Errors**
-   - Verify local blockchain is running
-   - Check `BLOCKCHAIN_URL` configuration
-   - Ensure network ID matches
-
-3. **API Errors**
-   - Check server logs for detailed error messages
-   - Verify request format matches API documentation
-
-### Logs
-
-Enable debug logging:
-```bash
-RUST_LOG=debug cargo run
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Add tests for new functionality
-4. Submit pull request
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Support
-
-For issues and questions:
-- Create GitHub issues for bugs
-- Check ObjectWire.org documentation for integration questions
-- Review API documentation in code comments
-
-http://localhost:8082/marketplace.html
+**Ready to scrape the web and create prediction markets!** 🚀

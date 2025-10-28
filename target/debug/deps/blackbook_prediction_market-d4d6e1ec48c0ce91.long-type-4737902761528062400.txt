@@ -1,2 +1,0 @@
-fn(axum::extract::State<Arc<std::sync::Mutex<PredictionMarketBlockchain>>>) -> Json<Value> {sync_prices}
-fn(axum::extract::State<Arc<std::sync::Mutex<PredictionMarketBlockchain>>>) -> Json<Value> {sync_prices}: Handler<_, _>
