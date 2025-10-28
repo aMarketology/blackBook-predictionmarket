@@ -1,9 +1,0 @@
-C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackbook\target\debug\deps\quick_protobuf_codec-1e54a87b3b30bb54.d: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\mod.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\test.rs
-
-C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackbook\target\debug\deps\libquick_protobuf_codec-1e54a87b3b30bb54.rlib: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\mod.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\test.rs
-
-C:\Users\Allied Gaming\Documents\GitHub\prediction-makerket BlackBook\blackbook\target\debug\deps\libquick_protobuf_codec-1e54a87b3b30bb54.rmeta: C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\lib.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\mod.rs C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\test.rs
-
-C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\lib.rs:
-C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\mod.rs:
-C:\Users\Allied\ Gaming\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\quick-protobuf-codec-0.3.1\src\generated\test.rs:
