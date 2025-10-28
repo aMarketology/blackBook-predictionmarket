@@ -746,6 +746,28 @@
                     <div class="crypto-price" id="bbPrice">$0.01</div>
                 </div>
             </div>
+            
+            <!-- Debug Console -->
+            <div style="background: #1e1e1e; border-radius: 12px; padding: 15px; margin-top: 20px; border: 2px solid #333; display: flex; flex-direction: column; height: 350px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #333; padding-bottom: 10px;">
+                    <h3 style="color: #00ff00; font-size: 14px; font-weight: 700; margin: 0; font-family: 'Courier New', monospace;">
+                        <i class="fas fa-bug"></i> Debug Console
+                    </h3>
+                    <button onclick="clearDebugConsole()" style="background: #333; color: #00ff00; border: 1px solid #555; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 600;">
+                        Clear
+                    </button>
+                </div>
+                
+                <!-- Console Output -->
+                <div id="debugConsoleOutput" style="flex: 1; overflow-y: auto; background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 10px; font-family: 'Courier New', monospace; font-size: 11px; color: #00ff00; white-space: pre-wrap; word-wrap: break-word;">
+                    <div style="color: #888;">Console ready...</div>
+                </div>
+                
+                <!-- Log Count -->
+                <div style="margin-top: 8px; font-size: 10px; color: #666; font-family: 'Courier New', monospace;">
+                    Logs: <span id="logCount" style="color: #00ff00;">0</span>
+                </div>
+            </div>
         </div>
 
         <!-- Center Content -->
@@ -929,19 +951,126 @@
 
     <!-- Admin Modal -->
     <div id="adminModal" class="admin-modal">
-        <div class="admin-panel">
+        <div class="admin-panel" style="max-width: 1000px;">
             <div class="admin-header">
                 <h2><i class="fas fa-crown"></i> 👑 GOD MODE - 8 Accounts</h2>
                 <button class="close-btn" onclick="closeAdminPanel()">&times;</button>
             </div>
             
             <!-- SELECT ACCOUNT -->
-            <div style="background: #e8f4f8; border-radius: 12px; padding: 30px; border: 2px solid #0088cc;">
+            <div style="background: #e8f4f8; border-radius: 12px; padding: 30px; border: 2px solid #0088cc; margin-bottom: 25px;">
                 <h3 style="color: #0066aa; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
                     <i class="fas fa-user-circle"></i> Select Active Account
                 </h3>
                 <div id="adminAccountSelector" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
                     <!-- Account buttons loaded dynamically -->
+                </div>
+            </div>
+            
+            <!-- ACCOUNT DETAILS -->
+            <div id="accountDetailsSection" style="display: none;">
+                <!-- Selected Account Info -->
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 25px; color: white; margin-bottom: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
+                        <div>
+                            <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Selected Account</div>
+                            <h3 id="detailAccountName" style="font-size: 28px; font-weight: 700; margin-bottom: 12px;">ALICE</h3>
+                            <div style="background: rgba(255,255,255,0.2); border-radius: 8px; padding: 12px; backdrop-filter: blur(10px); font-family: 'Courier New', monospace; font-size: 14px; word-break: break-all;">
+                                <i class="fas fa-wallet" style="margin-right: 8px;"></i>
+                                <span id="detailAccountAddress">0x1a1c1d1e1f1a1b1c1d1e1f1a1b1c1d1e1f1a1b1c</span>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 12px; opacity: 0.8; margin-bottom: 8px;">Balance</div>
+                            <div id="detailAccountBalance" style="font-size: 36px; font-weight: 700;">1000 BB</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Platform Activity -->
+                <div style="background: white; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0;">
+                    <h3 style="color: #1c1e21; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
+                        <i class="fas fa-receipt"></i> Platform Activity & Receipts
+                    </h3>
+                    
+                    <!-- Activity Filter Tabs -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px;">
+                        <button onclick="filterActivity('all')" id="filterAll" class="activity-filter-btn active" style="padding: 8px 16px; background: #1877f2; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                            All Activity
+                        </button>
+                        <button onclick="filterActivity('bets')" id="filterBets" class="activity-filter-btn" style="padding: 8px 16px; background: #f0f2f5; color: #1c1e21; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                            Bets Placed
+                        </button>
+                        <button onclick="filterActivity('wins')" id="filterWins" class="activity-filter-btn" style="padding: 8px 16px; background: #f0f2f5; color: #1c1e21; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                            Wins
+                        </button>
+                        <button onclick="filterActivity('losses')" id="filterLosses" class="activity-filter-btn" style="padding: 8px 16px; background: #f0f2f5; color: #1c1e21; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                            Losses
+                        </button>
+                    </div>
+                    
+                    <!-- Activity List -->
+                    <div id="activityList" style="max-height: 400px; overflow-y: auto;">
+                        <!-- Activities loaded dynamically -->
+                        <div style="text-align: center; padding: 40px; color: #65676b;">
+                            <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; margin-bottom: 15px;"></i>
+                            <p>No activity yet. Place a bet to see receipts here!</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Transfer Tokens Section -->
+                <div style="background: white; border-radius: 12px; padding: 25px; border: 2px solid #e0e0e0; margin-top: 25px;">
+                    <h3 style="color: #1c1e21; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
+                        <i class="fas fa-exchange-alt"></i> Transfer Tokens (GOD MODE)
+                    </h3>
+                    
+                    <!-- Account Selection Dropdowns -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px;">
+                        <!-- FROM Account -->
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 600; color: #1c1e21; margin-bottom: 8px;">
+                                <i class="fas fa-arrow-right"></i> FROM Account
+                            </label>
+                            <select id="transferFromSelect" onchange="updateTransferFromUI()" 
+                                    style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; cursor: pointer;">
+                                <option value="">Select sender...</option>
+                            </select>
+                        </div>
+                        
+                        <!-- TO Account -->
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 600; color: #1c1e21; margin-bottom: 8px;">
+                                <i class="fas fa-arrow-left"></i> TO Account
+                            </label>
+                            <select id="transferToSelect"
+                                    style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; cursor: pointer;">
+                                <option value="">Select recipient...</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Amount -->
+                        <div>
+                            <label style="display: block; font-size: 14px; font-weight: 600; color: #1c1e21; margin-bottom: 8px;">
+                                <i class="fas fa-coins"></i> Amount (BB)
+                            </label>
+                            <input type="number" id="transferAmount" placeholder="Enter amount" min="1" step="1"
+                                   style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
+                        </div>
+                    </div>
+                    
+                    <!-- Balance Info -->
+                    <div id="transferBalanceInfo" style="background: #f0f8ff; border-left: 4px solid #1877f2; padding: 15px; border-radius: 6px; margin-bottom: 20px; display: none;">
+                        <div style="font-size: 13px; color: #333;">
+                            <strong id="transferFromBalance"></strong> | 
+                            Will have <strong id="transferFromBalanceAfter"></strong> after transfer
+                        </div>
+                    </div>
+                    
+                    <!-- Send Button -->
+                    <button onclick="sendTransferGodMode()" onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 8px 20px rgba(102, 126, 234, 0.4)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none';" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
+                        <i class="fas fa-paper-plane"></i> Execute Transfer
+                    </button>
                 </div>
             </div>
         </div>
@@ -972,6 +1101,86 @@
         // NEW: Chain switching state
         let currentLiveChain = 'btc'; // btc, sol, or bb
         let currentLiveMarketId = 'live_btc_market';
+
+        // NEW: Debug Console state
+        let debugLogs = [];
+        let maxDebugLogs = 100;  // Keep last 100 logs
+        
+        // Override console.log to capture all logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
+        
+        function addDebugLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            debugLogs.push({ message: logEntry, type: type });
+            
+            // Keep only last N logs
+            if (debugLogs.length > maxDebugLogs) {
+                debugLogs.shift();
+            }
+            
+            // Update UI
+            updateDebugConsoleUI();
+        }
+        
+        function updateDebugConsoleUI() {
+            const consoleOutput = document.getElementById('debugConsoleOutput');
+            const logCount = document.getElementById('logCount');
+            
+            if (!consoleOutput) return;
+            
+            const colorMap = {
+                'log': '#00ff00',
+                'error': '#ff4444',
+                'warn': '#ffaa00',
+                'info': '#00aaff'
+            };
+            
+            consoleOutput.innerHTML = debugLogs.map(log => {
+                const color = colorMap[log.type] || '#00ff00';
+                return `<div style="color: ${color};">${log.message}</div>`;
+            }).join('');
+            
+            if (logCount) {
+                logCount.textContent = debugLogs.length;
+            }
+            
+            // Auto-scroll to bottom
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        function clearDebugConsole() {
+            debugLogs = [];
+            updateDebugConsoleUI();
+            addDebugLog('🧹 Debug console cleared', 'info');
+        }
+        
+        // Intercept console methods
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addDebugLog(args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addDebugLog('❌ ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addDebugLog('⚠️ ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' '), 'warn');
+        };
+        
+        console.info = function(...args) {
+            originalInfo.apply(console, args);
+            addDebugLog('ℹ️ ' + args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' '), 'info');
+        };
+        
+        // Initialize debug console
+        addDebugLog('✅ Debug Console Initialized', 'info');
 
         // ===== LIVE MARKET FUNCTIONS =====
         
@@ -1308,29 +1517,32 @@
             }
             
             try {
-                // Place bet on prediction market
-                const outcome = selectedBetDirection === 'higher' ? 0 : 1;
-                const chainName = currentLiveChain === 'btc' ? 'Bitcoin' : currentLiveChain === 'sol' ? 'Solana' : 'Blackbook';
+                // Place live price bet
+                const asset = currentLiveChain === 'btc' ? 'BTC' : currentLiveChain === 'sol' ? 'SOL' : 'BB';
+                const direction = selectedBetDirection.toUpperCase();
+                const timeframe = selectedTimeframe;
                 
-                const response = await fetch('http://localhost:3000/bet', {
+                const response = await fetch('http://localhost:3000/live-bet', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        account: currentAccount,
-                        market: currentLiveMarketId,
-                        outcome: outcome,
-                        amount: amount
+                        bettor: currentAccount,
+                        asset: asset,
+                        direction: direction,
+                        amount: amount,
+                        timeframe: timeframe
                     })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast(`✅ Bet placed! ${selectedBetDirection.toUpperCase()} ${amount} BB on ${chainName} for ${selectedTimeframe === '1min' ? '1 minute' : '15 minutes'}`, 'success');
+                    showToast(`✅ Bet placed! ${direction} ${amount} BB on ${asset} for ${timeframe === '1min' ? '1 minute' : '15 minutes'}. Bet ID: ${result.bet_id}`, 'success');
+                    console.log('Live bet placed:', result);
                     document.getElementById('betAmount').value = '';
                     selectedBetDirection = null;
                     loadAccounts();
-                    loadLiveMarket();
+                    
                     // Update buttons
                     document.getElementById('betHigher').style.background = '#f0f2f5';
                     document.getElementById('betLower').style.background = '#f0f2f5';
@@ -1520,11 +1732,27 @@
                 console.log('📥 Loading accounts from blockchain...');
                 const response = await fetch('http://localhost:3000/accounts');
                 console.log('✅ Accounts response status:', response.status);
+                
+                // Check HTTP status
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
-                console.log('📊 Loaded', data.accounts.length, 'accounts');
+                console.log('� Account data received:', data);
+                
+                if (!data.accounts || !Array.isArray(data.accounts)) {
+                    throw new Error('Invalid accounts format: expected array');
+                }
+                
+                console.log('�📊 Loaded', data.accounts.length, 'accounts');
                 accounts = data.accounts;
                 
                 const accountGrid = document.getElementById('accountGrid');
+                if (!accountGrid) {
+                    throw new Error('Account grid element not found in DOM');
+                }
+                
                 accountGrid.innerHTML = accounts.map(account => `
                     <button class="account-btn" onclick="selectAccount('${account.name}')">
                         ${account.name}
@@ -1536,10 +1764,17 @@
                 if (accounts.length > 0) {
                     selectAccount(accounts[0].name);
                 }
-                console.log('✅ Accounts loaded and displayed');
+                console.log('✅ Accounts loaded and displayed successfully');
             } catch (error) {
-                console.error('❌ Account loading error:', error);
-                showToast('Failed to load real accounts from blockchain', 'error');
+                // Extract error message properly
+                const errorMessage = error.message || String(error);
+                console.error('❌ Account loading error:', errorMessage);
+                console.error('❌ Full error stack:', error.stack || error);
+                
+                // Only show toast if accounts truly failed to load
+                if (accounts.length === 0) {
+                    showToast('Failed to load accounts from blockchain: ' + errorMessage, 'error');
+                }
             }
         }
 
@@ -2011,7 +2246,6 @@
                 
             } catch (error) {
                 console.error('Failed to load real blockchain bets:', error);
-                showToast('Failed to load activity from blockchain', 'error');
                 
                 // Initialize empty recipes if blockchain unavailable
                 recipes = [];
@@ -2316,6 +2550,9 @@
                 const response = await fetch('http://localhost:3000/accounts');
                 const data = await response.json();
                 
+                // Update global accounts array
+                accounts = data.accounts;
+                
                 // Load account selector buttons
                 const selector = document.getElementById('adminAccountSelector');
                 selector.innerHTML = data.accounts.map(account => `
@@ -2325,8 +2562,12 @@
                             style="padding: 12px; background: #f0f2f5; border: 2px solid #ccd0d5; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
                         👤 ${account.name.toUpperCase()}
                         <div style="font-size: 12px; color: #65676b; margin-top: 4px;">${account.balance} BB</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 6px; font-family: 'Courier New', monospace; word-break: break-all;">${account.address}</div>
                     </button>
                 `).join('');
+                
+                // Populate transfer dropdowns
+                populateTransferDropdowns();
                 
                 // Load account cards for token management
                 const adminList = document.getElementById('adminAccountsList');
@@ -2371,6 +2612,21 @@
             const adminBtn = document.querySelector('.admin-button');
             adminBtn.textContent = accountName.toUpperCase();
             adminBtn.title = `Selected account: ${accountName}`;
+            
+            // Update transfer section title
+            document.getElementById('transferFromAccount').textContent = accountName.toUpperCase();
+            
+            // Populate quick transfer buttons with other accounts
+            const otherAccounts = accounts.filter(a => a.name !== accountName);
+            const quickTransferDiv = document.getElementById('quickTransferButtons');
+            quickTransferDiv.innerHTML = otherAccounts.map(account => `
+                <button onclick="setTransferRecipient('${account.name}')" 
+                        style="padding: 10px; background: #e8f4f8; color: #0066aa; border: 2px solid #0088cc; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 13px;"
+                        onmouseover="this.style.background='#0088cc'; this.style.color='white';"
+                        onmouseout="this.style.background='#e8f4f8'; this.style.color='#0066aa';">
+                    → ${account.name.toUpperCase()}
+                </button>
+            `).join('');
             
             // Update left sidebar account display
             updateSelectedAccountDisplay(accountName);
@@ -2427,6 +2683,188 @@
             } catch (error) {
                 console.error('Failed to add tokens:', error);
                 showToast('Failed to add tokens to account', 'error');
+            }
+        }
+
+        // NEW GOD MODE TRANSFER FUNCTIONS
+        
+        function populateTransferDropdowns() {
+            // Populate FROM dropdown
+            const fromSelect = document.getElementById('transferFromSelect');
+            fromSelect.innerHTML = '<option value="">Select sender...</option>' + 
+                accounts.map(account => `<option value="${account.name}">${account.name.toUpperCase()} (${account.balance} BB)</option>`).join('');
+            
+            // Populate TO dropdown
+            const toSelect = document.getElementById('transferToSelect');
+            toSelect.innerHTML = '<option value="">Select recipient...</option>' + 
+                accounts.map(account => `<option value="${account.name}">${account.name.toUpperCase()}</option>`).join('');
+        }
+
+        function updateTransferFromUI() {
+            const fromSelect = document.getElementById('transferFromSelect');
+            const fromAccount = fromSelect.value;
+            const balanceInfo = document.getElementById('transferBalanceInfo');
+            const amountInput = document.getElementById('transferAmount');
+            
+            if (!fromAccount) {
+                balanceInfo.style.display = 'none';
+                return;
+            }
+            
+            const account = accounts.find(a => a.name === fromAccount);
+            if (!account) return;
+            
+            const amount = parseFloat(amountInput.value) || 0;
+            const balanceAfter = account.balance - amount;
+            
+            document.getElementById('transferFromBalance').textContent = `${account.name.toUpperCase()}: ${account.balance} BB`;
+            document.getElementById('transferFromBalanceAfter').textContent = `${balanceAfter} BB`;
+            balanceInfo.style.display = 'block';
+            
+            // Update balance in real-time when amount changes
+            amountInput.addEventListener('input', updateTransferFromUI);
+        }
+
+        async function sendTransferGodMode() {
+            const fromSelect = document.getElementById('transferFromSelect');
+            const toSelect = document.getElementById('transferToSelect');
+            const amountInput = document.getElementById('transferAmount');
+            
+            const from = fromSelect.value.trim();
+            const to = toSelect.value.trim();
+            const amountStr = amountInput.value.trim();
+            
+            if (!from) {
+                showToast('Please select sender account', 'error');
+                return;
+            }
+            
+            if (!to) {
+                showToast('Please select recipient account', 'error');
+                return;
+            }
+            
+            if (from === to) {
+                showToast('Sender and recipient must be different accounts', 'error');
+                return;
+            }
+            
+            if (!amountStr || isNaN(amountStr) || parseFloat(amountStr) <= 0) {
+                showToast('Please enter a valid amount', 'error');
+                return;
+            }
+            
+            const amount = parseFloat(amountStr);
+            const fromAccount = accounts.find(a => a.name === from);
+            
+            if (!fromAccount || fromAccount.balance < amount) {
+                showToast(`Insufficient balance. ${from} has only ${fromAccount?.balance || 0} BB`, 'error');
+                return;
+            }
+            
+            try {
+                console.log(`💸 Transferring ${amount} BB from ${from} to ${to}...`);
+                
+                const response = await fetch('http://localhost:3000/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from: from,
+                        to: to,
+                        amount: amount,
+                        memo: `[GOD MODE] Transfer from ${from} to ${to}`
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(`✅ Transferred ${amount} BB from ${from.toUpperCase()} to ${to.toUpperCase()}`, 'success');
+                    console.log('✅ Transfer successful:', data);
+                    
+                    // Clear the form
+                    fromSelect.value = '';
+                    toSelect.value = '';
+                    amountInput.value = '';
+                    document.getElementById('transferBalanceInfo').style.display = 'none';
+                    
+                    // Refresh account display
+                    loadAdminAccounts();
+                } else {
+                    showToast(`❌ Transfer failed: ${data.error || 'Unknown error'}`, 'error');
+                    console.error('Transfer failed:', data);
+                }
+            } catch (error) {
+                console.error('Transfer error:', error);
+                showToast('Transfer failed: ' + error.message, 'error');
+            }
+        }
+
+        function setTransferRecipient(recipientName) {
+            // Auto-fill the recipient field when clicking a quick transfer button
+            document.getElementById('transferRecipient').value = recipientName;
+            document.getElementById('transferRecipient').focus();
+            
+            // Highlight the recipient field
+            document.getElementById('transferRecipient').style.borderColor = '#667eea';
+            document.getElementById('transferRecipient').style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+            
+            showToast(`💬 Enter amount and click "Send Transfer" to send to ${recipientName}`, 'info');
+        }
+
+        async function sendTransfer() {
+            if (!currentAccount) {
+                showToast('Please select an account first', 'error');
+                return;
+            }
+
+            const recipient = document.getElementById('transferRecipient').value.trim();
+            const amountInput = document.getElementById('transferAmount').value.trim();
+            
+            if (!recipient) {
+                showToast('Please enter recipient address or account name', 'error');
+                return;
+            }
+
+            if (!amountInput || isNaN(amountInput) || parseFloat(amountInput) <= 0) {
+                showToast('Please enter a valid amount', 'error');
+                return;
+            }
+
+            const amount = parseFloat(amountInput);
+
+            try {
+                const response = await fetch('http://localhost:3000/transfer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from: currentAccount,
+                        to: recipient,
+                        amount: amount,
+                        memo: `Transfer from ${currentAccount} to ${recipient}`
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast(`✅ Transferred ${amount} BB from ${currentAccount} to ${recipient}`, 'success');
+                    console.log('Transfer successful:', data);
+                    
+                    // Clear the form
+                    document.getElementById('transferRecipient').value = '';
+                    document.getElementById('transferAmount').value = '';
+                    
+                    // Refresh account display
+                    updateSelectedAccountDisplay(currentAccount);
+                    loadAdminAccounts();
+                } else {
+                    showToast(`❌ Transfer failed: ${data.error || 'Unknown error'}`, 'error');
+                    console.error('Transfer failed:', data);
+                }
+            } catch (error) {
+                console.error('Transfer error:', error);
+                showToast('Failed to process transfer', 'error');
             }
         }
 
