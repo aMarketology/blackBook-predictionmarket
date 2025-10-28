@@ -733,6 +733,10 @@
                     <div class="crypto-name">Solana</div>
                     <div class="crypto-price" id="solPrice">Loading...</div>
                 </div>
+                <div class="crypto-item">
+                    <div class="crypto-name">Blackbook</div>
+                    <div class="crypto-price" id="bbPrice">$0.01</div>
+                </div>
             </div>
         </div>
 
@@ -741,23 +745,26 @@
             <!-- LIVE Bitcoin Market Tab -->
             <div id="liveTab" class="tab-content active">
                 <div class="content-header">
-                    <h2>🔴 LIVE Bitcoin Price Market</h2>
-                    <p style="color: #65676b; font-size: 14px;">Bet on whether BTC will be HIGHER or LOWER in your chosen timeframe</p>
+                    <h2>🔴 LIVE Price Market</h2>
+                    <p style="color: #65676b; font-size: 14px;">Bet on whether the price will be HIGHER or LOWER in your chosen timeframe</p>
                 </div>
                 
-                <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1); margin-bottom: 20px;">
-                    <!-- Live Market Container -->
-                    <div id="liveMarketContainer" style="text-align: center;">
-                        <div style="font-size: 14px; color: #65676b; margin-bottom: 20px;">Loading live Bitcoin price data...</div>
+                <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1); margin-bottom: 20px; text-align: center;">
+                    <!-- Chain Selector Dropdown -->
+                    <div style="margin-bottom: 20px;">
+                        <select id="chainSelector" onchange="switchLiveChain(this.value)" style="padding: 10px 15px; font-size: 16px; border: 2px solid #1877f2; border-radius: 6px; background: white; cursor: pointer; font-weight: 600;">
+                            <option value="btc">Bitcoin (BTC)</option>
+                            <option value="sol">Solana (SOL)</option>
+                            <option value="bb">Blackbook (BB)</option>
+                        </select>
                     </div>
                     
-                    <!-- Price Chart -->
-                    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-                        <h3 style="margin-bottom: 15px; color: #1c1e21;">📊 Price History (Last 10 Minutes)</h3>
-                        <canvas id="priceChart" style="max-height: 300px;"></canvas>
-                    </div>
+                    <!-- Price Display - Large Numbers -->
+                    <div style="font-size: 16px; color: #65676b; margin-bottom: 15px; font-weight: 600;">Current <span id="chainDisplayName">Bitcoin</span> Price</div>
+                    <div id="livePriceDisplay" style="font-size: 72px; font-weight: 700; color: #dc3545; line-height: 1; margin-bottom: 5px;">$--,---</div>
+                    <div id="livePriceSymbol" style="font-size: 24px; color: #dc3545; font-weight: 600;">₿ BTC</div>
                 </div>
-                
+
                 <!-- Betting Section -->
                 <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1);">
                     <h3 style="margin-bottom: 20px; color: #1c1e21;">🎯 Place Your Bet</h3>
@@ -983,9 +990,14 @@
         // NEW: Live betting state
         let selectedTimeframe = '15min';
         let selectedDirection = null;
+        let selectedBetDirection = null;
         let priceHistory = [];
         let maxPriceHistory = 60; // Store last 60 price points (1 per minute)
         let priceChart = null;
+        
+        // NEW: Chain switching state
+        let currentLiveChain = 'btc'; // btc, sol, or bb
+        let currentLiveMarketId = 'live_btc_market';
 
         // ===== LIVE MARKET FUNCTIONS =====
         
@@ -1226,7 +1238,7 @@
         
         /// Select bet direction (higher or lower)
         function selectBetDirection(direction) {
-            selectedDirection = direction;
+            selectedBetDirection = direction;
             
             // Update button states
             document.getElementById('betHigher').style.background = direction === 'higher' ? '#31a24c' : '#f0f2f5';
@@ -1303,7 +1315,7 @@
                 return;
             }
             
-            if (!selectedDirection) {
+            if (!selectedBetDirection) {
                 showToast('❌ Please select HIGHER or LOWER', 'error');
                 return;
             }
@@ -1323,13 +1335,15 @@
             
             try {
                 // Place bet on prediction market
-                const outcome = selectedDirection === 'higher' ? 0 : 1;
+                const outcome = selectedBetDirection === 'higher' ? 0 : 1;
+                const chainName = currentLiveChain === 'btc' ? 'Bitcoin' : currentLiveChain === 'sol' ? 'Solana' : 'Blackbook';
+                
                 const response = await fetch('http://localhost:3000/bet', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         account: currentAccount,
-                        market: liveMarket.market_id,
+                        market: currentLiveMarketId,
                         outcome: outcome,
                         amount: amount
                     })
@@ -1338,9 +1352,9 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast(`✅ Bet placed! ${selectedDirection.toUpperCase()} ${amount} BB for ${selectedTimeframe === '1min' ? '1 minute' : '15 minutes'}`, 'success');
+                    showToast(`✅ Bet placed! ${selectedBetDirection.toUpperCase()} ${amount} BB on ${chainName} for ${selectedTimeframe === '1min' ? '1 minute' : '15 minutes'}`, 'success');
                     document.getElementById('betAmount').value = '';
-                    selectedDirection = null;
+                    selectedBetDirection = null;
                     loadAccounts();
                     loadLiveMarket();
                     // Update buttons
@@ -1355,6 +1369,63 @@
             }
         }
         
+        /// Switch between different live price chains
+        function switchLiveChain(chain) {
+            let chainName = '';
+            let symbol = '';
+            let color = '#dc3545'; // Red by default
+            let price = 0;
+            let marketId = '';
+            
+            if (chain === 'btc') {
+                chainName = 'Bitcoin';
+                symbol = '₿ BTC';
+                color = '#dc3545'; // Red
+                price = cryptoPrices.btc || 0;
+                marketId = 'live_btc_market';
+            } else if (chain === 'sol') {
+                chainName = 'Solana';
+                symbol = '◎ SOL';
+                color = '#14f195'; // Green
+                price = cryptoPrices.sol || 0;
+                marketId = 'live_sol_market';
+            } else if (chain === 'bb') {
+                chainName = 'Blackbook';
+                symbol = '🔷 BB';
+                color = '#6366f1'; // Indigo
+                price = 0.01; // Stable price
+                marketId = 'live_bb_market';
+            }
+            
+            // Store current chain in global variable
+            currentLiveChain = chain;
+            currentLiveMarketId = marketId;
+            
+            // Update display
+            document.getElementById('chainDisplayName').textContent = chainName;
+            document.getElementById('livePriceDisplay').style.color = color;
+            document.getElementById('livePriceSymbol').style.color = color;
+            document.getElementById('livePriceSymbol').textContent = symbol;
+            
+            // Format and display price
+            const formattedPrice = '$' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('livePriceDisplay').textContent = formattedPrice;
+            
+            // Reset bet form
+            document.getElementById('betAmount').value = '';
+            document.getElementById('betHigher').style.background = '#f0f2f5';
+            document.getElementById('betLower').style.background = '#f0f2f5';
+            document.getElementById('betHigher').style.borderColor = '#ccd0d5';
+            document.getElementById('betLower').style.borderColor = '#ccd0d5';
+            selectedBetDirection = null;
+            
+            // Reset timeframe to 15min and load new market
+            selectTimeframe('15min');
+            loadLiveMarket();
+            
+            console.log('Switched to', chainName, 'at', formattedPrice, '| Market ID:', marketId);
+        }
+        
         /// Fetch Bitcoin price and update chart
         async function updateBitcoinPrice() {
             try {
@@ -1362,6 +1433,21 @@
                 const data = await response.json();
                 
                 if (data.success && data.price) {
+                    // Update the large price display in LIVE tab (old element for compatibility)
+                    const priceDisplay = document.getElementById('bitcoinPriceDisplay');
+                    if (priceDisplay) {
+                        priceDisplay.textContent = '$' + data.price.toLocaleString('en-US', {maximumFractionDigits: 2});
+                    }
+                    
+                    // Update the new dropdown-based display if BTC is selected
+                    const chainSelector = document.getElementById('chainSelector');
+                    if (chainSelector && chainSelector.value === 'btc') {
+                        const livePriceDisplay = document.getElementById('livePriceDisplay');
+                        if (livePriceDisplay) {
+                            livePriceDisplay.textContent = '$' + data.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                    
                     // Add to history
                     priceHistory.push({
                         price: data.price,
@@ -1708,14 +1794,22 @@
                 const solData = await solResponse.json();
                 console.log('SOL Data:', solData);
                 
+                // Extract prices from response (handles both {price: X} and {success: true, price: X} formats)
+                const btcPrice = btcData.price || (btcData.bitcoin ? Object.values(btcData.bitcoin)[0] : null);
+                const solPrice = solData.price || (solData.solana ? Object.values(solData.solana)[0] : null);
+                
                 // Update prices with trend indicators
-                updateCryptoPrice('btcPrice', btcData.price, cryptoPrices.btc);
-                updateCryptoPrice('solPrice', solData.price, cryptoPrices.sol);
+                if (btcPrice) {
+                    updateCryptoPrice('btcPrice', btcPrice, cryptoPrices.btc);
+                    cryptoPrices.btc = btcPrice;
+                }
                 
-                cryptoPrices.btc = btcData.price;
-                cryptoPrices.sol = solData.price;
+                if (solPrice) {
+                    updateCryptoPrice('solPrice', solPrice, cryptoPrices.sol);
+                    cryptoPrices.sol = solPrice;
+                }
                 
-                console.log('Updated prices - BTC: $' + btcData.price + ', SOL: $' + solData.price);
+                console.log('Updated prices - BTC: $' + btcPrice + ', SOL: $' + solPrice);
                 
                 // Generate crypto prediction markets
                 generateCryptoPredictionMarkets();
