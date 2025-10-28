@@ -705,9 +705,9 @@
                 <button class="admin-button" onclick="openAdminPanel()">
                     <i class="fas fa-cog"></i> Admin
                 </button>
-                <div class="balance-display">
-                    <i class="fas fa-coins"></i> <span id="userBalance">Loading...</span> BB
-                </div>
+                <button class="admin-button" onclick="openEventCreator()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-left: 10px;">
+                    <i class="fas fa-plus"></i> Add Event
+                </button>
             </div>
         </div>
     </nav>
@@ -716,13 +716,21 @@
     <div class="main-container">
         <!-- Left Sidebar -->
         <div class="left-sidebar">
-            <div class="account-selector">
-                <h3><i class="fas fa-user"></i> Select Account</h3>
-                <div class="account-grid" id="accountGrid">
-                    <!-- Accounts loaded dynamically -->
+            <!-- Selected Account Display -->
+            <div id="selectedAccountDisplay" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white; display: none;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <i class="fas fa-user-circle" style="font-size: 32px;"></i>
+                    <div>
+                        <div style="font-size: 11px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px;">Active Account</div>
+                        <div id="selectedAccountName" style="font-size: 20px; font-weight: 700;">No Account Selected</div>
+                    </div>
+                </div>
+                <div style="background: rgba(255,255,255,0.2); border-radius: 8px; padding: 12px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 4px;">Balance</div>
+                    <div id="selectedAccountBalance" style="font-size: 28px; font-weight: 700;">0 BB</div>
                 </div>
             </div>
-
+            
             <div class="crypto-prices">
                 <h3><i class="fas fa-chart-line"></i> Live Prices</h3>
                 <div class="crypto-item">
@@ -923,51 +931,17 @@
     <div id="adminModal" class="admin-modal">
         <div class="admin-panel">
             <div class="admin-header">
-                <h2><i class="fas fa-cog"></i> Admin Panel</h2>
+                <h2><i class="fas fa-crown"></i> 👑 GOD MODE - 8 Accounts</h2>
                 <button class="close-btn" onclick="closeAdminPanel()">&times;</button>
             </div>
             
-            <!-- Scraper Section -->
-            <div style="background: #f0f8ff; border-radius: 8px; padding: 20px; margin-bottom: 30px; border: 2px solid #1877f2;">
-                <h3 style="color: #1877f2; margin-bottom: 15px;">
-                    <i class="fas fa-globe"></i> Create Market from URL
+            <!-- SELECT ACCOUNT -->
+            <div style="background: #e8f4f8; border-radius: 12px; padding: 30px; border: 2px solid #0088cc;">
+                <h3 style="color: #0066aa; margin-bottom: 20px; font-size: 18px; font-weight: 600;">
+                    <i class="fas fa-user-circle"></i> Select Active Account
                 </h3>
-                <p style="color: #65676b; margin-bottom: 15px; font-size: 14px;">
-                    Paste a URL and we'll scrape the page to automatically create a prediction market
-                </p>
-                
-                <div style="display: grid; gap: 12px;">
-                    <input type="text" id="scraperUrl" placeholder="Paste URL here... (e.g., https://example.com/event)" 
-                        style="padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; width: 100%;">
-                    
-                    <input type="text" id="scraperTitle" placeholder="Market Title (optional - will auto-detect if blank)"
-                        style="padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px; width: 100%;">
-                    
-                    <select id="scraperCategory" style="padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px;">
-                        <option value="tech">Tech</option>
-                        <option value="crypto">Crypto</option>
-                        <option value="sports">Sports</option>
-                        <option value="politics">Politics</option>
-                        <option value="business">Business</option>
-                    </select>
-                    
-                    <button onclick="scrapeAndCreateMarket()" style="padding: 12px 24px; background: #1877f2; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 14px;">
-                        <i class="fas fa-magic"></i> Scrape URL & Create Market
-                    </button>
-                </div>
-                
-                <div id="scraperStatus" style="margin-top: 15px; padding: 12px; background: white; border-radius: 6px; display: none; font-size: 14px;">
-                    <!-- Status updates here -->
-                </div>
-            </div>
-            
-            <!-- Accounts Section -->
-            <div>
-                <h3 style="margin-bottom: 15px; color: #1c1e21;">
-                    <i class="fas fa-users"></i> Manage Accounts
-                </h3>
-                <div class="admin-accounts" id="adminAccountsList">
-                    <!-- Admin account cards loaded dynamically -->
+                <div id="adminAccountSelector" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                    <!-- Account buttons loaded dynamically -->
                 </div>
             </div>
         </div>
@@ -2316,15 +2290,48 @@
             const modal = document.getElementById('adminModal');
             modal.classList.remove('active');
         }
+        
+        function openEventCreator() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.add('active');
+            
+            // Scroll to the Create Event section
+            setTimeout(() => {
+                const createEventDiv = document.querySelector('[style*="border: 2px solid #1877f2"]');
+                if (createEventDiv) {
+                    createEventDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+            
+            console.log('Event creator opened - ready to add events via web scraper');
+        }
+        
+        function closeEventCreator() {
+            const modal = document.getElementById('adminModal');
+            modal.classList.remove('active');
+        }
 
         async function loadAdminAccounts() {
             try {
                 const response = await fetch('http://localhost:3000/accounts');
                 const data = await response.json();
-                const adminList = document.getElementById('adminAccountsList');
                 
+                // Load account selector buttons
+                const selector = document.getElementById('adminAccountSelector');
+                selector.innerHTML = data.accounts.map(account => `
+                    <button onclick="selectAdminAccount('${account.name}', this)" 
+                            class="admin-select-btn" 
+                            id="btn_${account.name}"
+                            style="padding: 12px; background: #f0f2f5; border: 2px solid #ccd0d5; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                        👤 ${account.name.toUpperCase()}
+                        <div style="font-size: 12px; color: #65676b; margin-top: 4px;">${account.balance} BB</div>
+                    </button>
+                `).join('');
+                
+                // Load account cards for token management
+                const adminList = document.getElementById('adminAccountsList');
                 adminList.innerHTML = data.accounts.map(account => `
-                    <div class="account-card">
+                    <div class="account-card" id="card_${account.name}">
                         <h3>👤 ${account.name.toUpperCase()}</h3>
                         <div class="account-info">
                             <strong>Balance:</strong> ${account.balance} BB
@@ -2341,6 +2348,51 @@
             } catch (error) {
                 console.error('Failed to load admin accounts:', error);
                 showToast('Failed to load accounts for admin panel', 'error');
+            }
+        }
+
+        function selectAdminAccount(accountName, buttonElement) {
+            // Remove highlight from all buttons
+            document.querySelectorAll('.admin-select-btn').forEach(btn => {
+                btn.style.background = '#f0f2f5';
+                btn.style.borderColor = '#ccd0d5';
+                btn.style.color = '#1c1e21';
+            });
+            
+            // Highlight selected button
+            buttonElement.style.background = '#1877f2';
+            buttonElement.style.borderColor = '#1877f2';
+            buttonElement.style.color = 'white';
+            
+            // Update the current account
+            currentAccount = accountName;
+            
+            // Update the menu button to show selected account
+            const adminBtn = document.querySelector('.admin-button');
+            adminBtn.textContent = accountName.toUpperCase();
+            adminBtn.title = `Selected account: ${accountName}`;
+            
+            // Update left sidebar account display
+            updateSelectedAccountDisplay(accountName);
+            
+            showToast(`Account switched to ${accountName}`, 'success');
+        }
+
+        async function updateSelectedAccountDisplay(accountName) {
+            try {
+                // Fetch the account balance
+                const response = await fetch(`http://localhost:3000/balance/${accountName}`);
+                const data = await response.json();
+                
+                // Show the display
+                const displayDiv = document.getElementById('selectedAccountDisplay');
+                displayDiv.style.display = 'block';
+                
+                // Update the name and balance
+                document.getElementById('selectedAccountName').textContent = accountName.toUpperCase();
+                document.getElementById('selectedAccountBalance').textContent = `${data.balance} BB`;
+            } catch (error) {
+                console.error('Failed to update account display:', error);
             }
         }
 
