@@ -779,85 +779,142 @@
                     <p style="color: #65676b; font-size: 14px;">Bet on whether the price will be HIGHER or LOWER in your chosen timeframe</p>
                 </div>
                 
-                <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1); margin-bottom: 20px; text-align: center;">
-                    <!-- Chain Selector Dropdown -->
-                    <div style="margin-bottom: 20px;">
-                        <select id="chainSelector" onchange="switchLiveChain(this.value)" style="padding: 10px 15px; font-size: 16px; border: 2px solid #1877f2; border-radius: 6px; background: white; cursor: pointer; font-weight: 600;">
-                            <option value="btc">Bitcoin (BTC)</option>
-                            <option value="sol">Solana (SOL)</option>
-                            <option value="bb">Blackbook (BB)</option>
-                        </select>
+                <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1); margin-bottom: 20px;">
+                    <!-- Chain Selector -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                        <div>
+                            <label style="font-weight: 600; color: #1c1e21; margin-right: 12px;">Select Asset:</label>
+                            <select id="chainSelector" onchange="switchLiveChain(this.value)" style="padding: 10px 15px; font-size: 14px; border: 2px solid #1877f2; border-radius: 6px; background: white; cursor: pointer; font-weight: 600;">
+                                <option value="btc">🪙 Bitcoin (BTC)</option>
+                                <option value="sol">🌊 Solana (SOL)</option>
+                            </select>
+                        </div>
+                        <div style="text-align: right; font-size: 13px; color: #65676b;">
+                            Last Updated: <span id="lastPriceUpdate">--:--:--</span> UTC
+                        </div>
                     </div>
                     
-                    <!-- Price Display - Large Numbers -->
-                    <div style="font-size: 16px; color: #65676b; margin-bottom: 15px; font-weight: 600;">Current <span id="chainDisplayName">Bitcoin</span> Price</div>
-                    <div id="livePriceDisplay" style="font-size: 72px; font-weight: 700; color: #dc3545; line-height: 1; margin-bottom: 5px;">$--,---</div>
-                    <div id="livePriceSymbol" style="font-size: 24px; color: #dc3545; font-weight: 600;">₿ BTC</div>
+                    <!-- Price Display with Ticker -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 30px; color: white; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <div>
+                                <div style="font-size: 14px; opacity: 0.9;">Current <span id="chainDisplayName">Bitcoin</span> Price</div>
+                                <div id="livePriceDisplay" style="font-size: 64px; font-weight: 700; line-height: 1;">$--,---</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div id="livePriceChange" style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">+0.00%</div>
+                                <div id="livePriceSymbol" style="font-size: 18px; opacity: 0.9;">₿ BTC</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Price Trend Indicator -->
+                        <div style="display: flex; gap: 3px; margin-top: 15px;">
+                            <div id="priceTrendBar1" style="flex: 1; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
+                            <div id="priceTrendBar2" style="flex: 1; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
+                            <div id="priceTrendBar3" style="flex: 1; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
+                            <div id="priceTrendBar4" style="flex: 1; height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px;"></div>
+                            <div id="priceTrendBar5" style="flex: 1; height: 3px; background: rgba(255,255,255,0.5); border-radius: 2px;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Network Status -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div style="background: #f0f2f5; border-radius: 8px; padding: 12px; font-size: 13px;">
+                            <div style="color: #65676b; margin-bottom: 4px;">Blockchain Network</div>
+                            <div style="font-weight: 600; color: #1c1e21;">🟢 Layer 1 Connected</div>
+                        </div>
+                        <div style="background: #f0f2f5; border-radius: 8px; padding: 12px; font-size: 13px;">
+                            <div style="color: #65676b; margin-bottom: 4px;">Active Bets</div>
+                            <div style="font-weight: 600; color: #1c1e21;" id="activeBetCount">0 active</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Betting Section -->
                 <div style="background: white; border-radius: 12px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.1);">
-                    <h3 style="margin-bottom: 20px; color: #1c1e21;">🎯 Place Your Bet</h3>
+                    <h3 style="margin-bottom: 25px; color: #1c1e21; font-size: 20px;">🎯 Place Your Bet</h3>
                     
                     <!-- Timeframe Selector -->
                     <div style="margin-bottom: 25px;">
-                        <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #1c1e21;">Select Timeframe:</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <label style="font-weight: 600; color: #1c1e21;">Select Timeframe:</label>
+                            <div id="timeframeCountdown" style="font-size: 13px; color: #667eea; font-weight: 600; display: none;">
+                                ⏰ <span id="countdownTimer">15:00</span> remaining
+                            </div>
+                        </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <button id="timeframe1min" onclick="selectTimeframe('1min')" style="padding: 12px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                            <button id="timeframe1min" onclick="selectTimeframe('1min')" style="padding: 14px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 15px;">
                                 ⏱️ 1 Minute
                             </button>
-                            <button id="timeframe15min" onclick="selectTimeframe('15min')" style="padding: 12px; background: #1877f2; color: white; border: 2px solid #1877f2; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s;">
+                            <button id="timeframe15min" onclick="selectTimeframe('15min')" style="padding: 14px; background: #1877f2; color: white; border: 2px solid #1877f2; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 15px;">
                                 ⏱️ 15 Minutes
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Current Timeframe Info -->
-                    <div id="timeframeInfo" style="padding: 15px; background: #fff3cd; border-radius: 6px; margin-bottom: 20px; display: none;">
-                        <div style="color: #856404; font-weight: 600;">
-                            ⏰ <span id="timeframeDisplay">15 minutes</span> | Time Remaining: <span id="timeRemaining">--:--</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Bet Selection -->
+                    <!-- Direction Selection -->
                     <div style="margin-bottom: 25px;">
                         <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #1c1e21;">Price Direction:</label>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                            <button id="betHigher" onclick="selectBetDirection('higher')" style="padding: 15px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 16px;">
+                            <button id="betHigher" onclick="selectBetDirection('higher')" style="padding: 16px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 15px;">
                                 📈 HIGHER
                             </button>
-                            <button id="betLower" onclick="selectBetDirection('lower')" style="padding: 15px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 16px;">
+                            <button id="betLower" onclick="selectBetDirection('lower')" style="padding: 16px; background: #f0f2f5; color: #1c1e21; border: 2px solid #ccd0d5; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 15px;">
                                 📉 LOWER
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Bet Amount -->
+                    <!-- Bet Amount Input -->
                     <div style="margin-bottom: 25px;">
-                        <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #1c1e21;">Bet Amount (BlackBook Tokens):</label>
-                        <input type="number" id="betAmount" placeholder="Enter amount..." min="1" max="10000" step="1" style="width: 100%; padding: 12px; border: 1px solid #ccd0d5; border-radius: 6px; font-size: 14px;">
-                        <small style="color: #65676b; margin-top: 5px; display: block;" id="balanceDisplay">Balance: -- BB</small>
-                    </div>
-                    
-                    <!-- Current Odds -->
-                    <div style="padding: 15px; background: #e7f3ff; border-radius: 6px; margin-bottom: 20px; text-align: center;">
-                        <div style="font-size: 12px; color: #0c5460; font-weight: 600; margin-bottom: 8px;">Current Odds</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <label style="font-weight: 600; color: #1c1e21;">Bet Amount (BlackBook Tokens):</label>
+                            <div id="balanceDisplay" style="font-size: 13px; color: #667eea; font-weight: 600;">Balance: -- BB</div>
+                        </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div>
-                                <div style="font-size: 20px; color: #0c5460; font-weight: 700;" id="oddsHigher">50%</div>
-                                <div style="font-size: 11px; color: #0c5460;">HIGHER</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 20px; color: #0c5460; font-weight: 700;" id="oddsLower">50%</div>
-                                <div style="font-size: 11px; color: #0c5460;">LOWER</div>
+                            <input type="number" id="betAmount" placeholder="Enter amount..." min="1" max="10000" step="1" style="grid-column: 1; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; transition: border 0.3s;" onchange="updateBetPreview()">
+                            <div style="background: #f0f2f5; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; justify-content: center; font-size: 13px;">
+                                <div style="color: #65676b; margin-bottom: 3px;">Potential Payout</div>
+                                <div style="font-weight: 600; color: #1c1e21;" id="potentialPayout">0 BB</div>
                             </div>
                         </div>
                     </div>
                     
+                    <!-- Current Odds -->
+                    <div style="background: linear-gradient(135deg, #e7f3ff 0%, #f0f8ff 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 2px solid #b3d9ff;">
+                        <div style="font-size: 12px; color: #0c5460; font-weight: 600; margin-bottom: 12px; text-align: center;">📊 LIVE ODDS (from blockchain betting pool)</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 28px; color: #31a24c; font-weight: 700; margin-bottom: 4px;" id="oddsHigher">50%</div>
+                                <div style="font-size: 12px; color: #0c5460; font-weight: 600;">📈 HIGHER</div>
+                                <div style="font-size: 11px; color: #999; margin-top: 4px;" id="oddsHigherAmount">0 BB pool</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 28px; color: #e4163a; font-weight: 700; margin-bottom: 4px;" id="oddsLower">50%</div>
+                                <div style="font-size: 12px; color: #0c5460; font-weight: 600;">📉 LOWER</div>
+                                <div style="font-size: 11px; color: #999; margin-top: 4px;" id="oddsLowerAmount">0 BB pool</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Blockchain Transaction Summary -->
+                    <div style="background: #f9f9f9; border-radius: 8px; padding: 15px; margin-bottom: 20px; border-left: 4px solid #1877f2; display: none;" id="betSummary">
+                        <div style="font-size: 12px; color: #666;">
+                            <div style="margin-bottom: 8px;"><strong>📝 Transaction Summary:</strong></div>
+                            <div style="margin-bottom: 4px;">From: <span id="txFromAccount" style="color: #1877f2; font-weight: 600;">--</span></div>
+                            <div style="margin-bottom: 4px;">Asset: <span id="txAsset" style="color: #1877f2; font-weight: 600;">--</span></div>
+                            <div style="margin-bottom: 4px;">Prediction: <span id="txDirection" style="color: #1877f2; font-weight: 600;">--</span></div>
+                            <div>Tokens: <span id="txAmount" style="color: #1877f2; font-weight: 600;">0 BB</span></div>
+                        </div>
+                    </div>
+                    
                     <!-- Place Bet Button -->
-                    <button onclick="placeLiveMarketBet()" style="width: 100%; padding: 15px; background: #31a24c; color: white; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 16px; transition: all 0.3s;">
-                        🎯 Place Bet
+                    <button onclick="placeLiveMarketBet()" style="width: 100%; padding: 16px; background: linear-gradient(135deg, #31a24c 0%, #2a8c3e 100%); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 16px; transition: all 0.3s; box-shadow: 0 4px 12px rgba(49, 162, 76, 0.3);">
+                        🎯 Place Bet on Blockchain
                     </button>
+                    <div style="text-align: center; font-size: 11px; color: #999; margin-top: 12px;">
+                        ✓ Bet stored on Layer 1 blockchain | Gas-optimized | Instant settlement
+                    </div>
                 </div>
             </div>
 
@@ -1054,7 +1111,7 @@
                             <label style="display: block; font-size: 14px; font-weight: 600; color: #1c1e21; margin-bottom: 8px;">
                                 <i class="fas fa-coins"></i> Amount (BB)
                             </label>
-                            <input type="number" id="transferAmount" placeholder="Enter amount" min="1" step="1"
+                            <input type="number" id="transferAmount" placeholder="Enter amount" min="1" step="1" onchange="updateTransferFromUI()"
                                    style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; box-sizing: border-box;">
                         </div>
                     </div>
@@ -1414,9 +1471,129 @@
             document.getElementById('timeframe15min').style.borderColor = timeframe === '15min' ? '#1877f2' : '#ccd0d5';
             document.getElementById('timeframe15min').style.color = timeframe === '15min' ? 'white' : '#1c1e21';
             
-            // Update display
-            document.getElementById('timeframeInfo').style.display = 'block';
-            document.getElementById('timeframeDisplay').textContent = timeframe === '1min' ? '1 minute' : '15 minutes';
+            // Show countdown timer
+            document.getElementById('timeframeCountdown').style.display = 'block';
+            startCountdownTimer(timeframe);
+        }
+
+        // Start countdown timer for selected timeframe
+        function startCountdownTimer(timeframe) {
+            if (countdownTimer) clearInterval(countdownTimer);
+            
+            const totalSeconds = timeframe === '1min' ? 60 : 900;
+            let secondsLeft = totalSeconds;
+            
+            const updateDisplay = () => {
+                const mins = Math.floor(secondsLeft / 60);
+                const secs = secondsLeft % 60;
+                const display = `${mins}:${secs.toString().padStart(2, '0')}`;
+                document.getElementById('countdownTimer').textContent = display;
+            };
+            
+            updateDisplay();
+            
+            countdownTimer = setInterval(() => {
+                secondsLeft--;
+                updateDisplay();
+                
+                if (secondsLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    document.getElementById('timeframeCountdown').style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        // Update bet preview with odds and payout
+        function updateBetPreview() {
+            const amount = parseFloat(document.getElementById('betAmount').value) || 0;
+            if (amount <= 0) {
+                document.getElementById('potentialPayout').textContent = '0 BB';
+                document.getElementById('betSummary').style.display = 'none';
+                return;
+            }
+            
+            // Get current odds
+            const oddsHigherText = document.getElementById('oddsHigher').textContent;
+            const oddsHigher = parseFloat(oddsHigherText) / 100;
+            
+            // Simple payout calculation: 2x if you win, loss if you lose
+            const potentialWin = amount * 2;
+            document.getElementById('potentialPayout').textContent = potentialWin + ' BB';
+            
+            // Show transaction summary
+            document.getElementById('betSummary').style.display = 'block';
+            document.getElementById('txFromAccount').textContent = currentAccount || '--';
+            document.getElementById('txAsset').textContent = currentLiveChain === 'btc' ? 'BTC' : currentLiveChain === 'sol' ? 'SOL' : 'BB';
+            document.getElementById('txDirection').textContent = selectedBetDirection ? selectedBetDirection.toUpperCase() : '--';
+            document.getElementById('txAmount').textContent = amount + ' BB';
+        }
+
+        // Update live odds from betting pool (backend)
+        async function updateLiveOdds() {
+            try {
+                const response = await fetch('http://localhost:3000/live-bets/active');
+                const data = await response.json();
+                
+                if (data.active_bets && data.active_bets.length > 0) {
+                    // Calculate odds from active bets
+                    let higherBets = 0;
+                    let lowerBets = 0;
+                    
+                    data.active_bets.forEach(bet => {
+                        if (bet.direction === 'HIGHER') {
+                            higherBets += bet.amount;
+                        } else {
+                            lowerBets += bet.amount;
+                        }
+                    });
+                    
+                    const total = higherBets + lowerBets;
+                    if (total > 0) {
+                        const oddsHigher = Math.round((higherBets / total) * 100);
+                        const oddsLower = 100 - oddsHigher;
+                        
+                        document.getElementById('oddsHigher').textContent = oddsHigher + '%';
+                        document.getElementById('oddsLower').textContent = oddsLower + '%';
+                        document.getElementById('oddsHigherAmount').textContent = Math.round(higherBets) + ' BB pool';
+                        document.getElementById('oddsLowerAmount').textContent = Math.round(lowerBets) + ' BB pool';
+                    }
+                    
+                    // Update active bet count
+                    document.getElementById('activeBetCount').textContent = data.active_bets.length + ' active';
+                }
+            } catch (error) {
+                console.log('Could not fetch live odds:', error);
+                // Keep default 50/50 odds
+            }
+        }
+
+        // Update price change percentage and trend
+        function updatePriceChange() {
+            if (priceHistory.length < 2) return;
+            
+            const previousPrice = priceHistory[0].price;
+            const currentPrice = priceHistory[priceHistory.length - 1].price;
+            const change = currentPrice - previousPrice;
+            const changePercent = (change / previousPrice) * 100;
+            
+            const changeElement = document.getElementById('livePriceChange');
+            changeElement.textContent = (changePercent >= 0 ? '+' : '') + changePercent.toFixed(2) + '%';
+            changeElement.style.color = changePercent >= 0 ? '#31a24c' : '#e4163a';
+            
+            // Update trend bars
+            for (let i = 0; i < 5; i++) {
+                const bar = document.getElementById(`priceTrendBar${i + 1}`);
+                if (i < priceHistory.length - 1) {
+                    const thisPrice = priceHistory[i].price;
+                    const nextPrice = priceHistory[i + 1].price;
+                    bar.style.background = nextPrice >= thisPrice ? 'rgba(49, 162, 76, 0.8)' : 'rgba(228, 22, 58, 0.8)';
+                }
+            }
+            
+            // Update last price update time
+            const now = new Date();
+            const time = now.toLocaleTimeString('en-US', { hour12: false });
+            document.getElementById('lastPriceUpdate').textContent = time;
         }
         
         /// Select bet direction (higher or lower)
@@ -1431,6 +1608,8 @@
             document.getElementById('betLower').style.background = direction === 'lower' ? '#e4163a' : '#f0f2f5';
             document.getElementById('betLower').style.borderColor = direction === 'lower' ? '#e4163a' : '#ccd0d5';
             document.getElementById('betLower').style.color = direction === 'lower' ? 'white' : '#1c1e21';
+            
+            updateBetPreview();
         }
         
         /// Update price chart with new data
@@ -1503,6 +1682,11 @@
                 return;
             }
             
+            if (!selectedTimeframe) {
+                showToast('❌ Please select a timeframe (1min or 15min)', 'error');
+                return;
+            }
+            
             const amount = parseInt(document.getElementById('betAmount').value);
             if (!amount || amount < 1) {
                 showToast('❌ Please enter a valid bet amount', 'error');
@@ -1517,6 +1701,13 @@
             }
             
             try {
+                console.log('🚀 Submitting bet to blockchain...');
+                console.log('   Account:', currentAccount);
+                console.log('   Asset:', currentLiveChain.toUpperCase());
+                console.log('   Direction:', selectedBetDirection.toUpperCase());
+                console.log('   Amount:', amount, 'BB');
+                console.log('   Timeframe:', selectedTimeframe);
+                
                 // Place live price bet
                 const asset = currentLiveChain === 'btc' ? 'BTC' : currentLiveChain === 'sol' ? 'SOL' : 'BB';
                 const direction = selectedBetDirection.toUpperCase();
@@ -1537,21 +1728,45 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast(`✅ Bet placed! ${direction} ${amount} BB on ${asset} for ${timeframe === '1min' ? '1 minute' : '15 minutes'}. Bet ID: ${result.bet_id}`, 'success');
-                    console.log('Live bet placed:', result);
+                    const timeframeLabel = timeframe === '1min' ? '1 minute' : '15 minutes';
+                    showToast(`✅ BET CONFIRMED\n📝 ID: ${result.bet_id}\n💰 ${amount} BB\n📊 ${asset} ${direction}\n⏱️ ${timeframeLabel}`, 'success');
+                    console.log('✅ Bet successfully placed on Layer 1:', result);
+                    
+                    // Add receipt for the bet
+                    addReceipt({
+                        type: 'bet',
+                        account: currentAccount,
+                        amount: amount,
+                        market: `${asset} ${direction}`,
+                        timestamp: new Date(),
+                        betId: result.bet_id
+                    });
+                    
+                    // Clear form
                     document.getElementById('betAmount').value = '';
                     selectedBetDirection = null;
-                    loadAccounts();
+                    document.getElementById('betSummary').style.display = 'none';
+                    document.getElementById('potentialPayout').textContent = '0 BB';
                     
                     // Update buttons
                     document.getElementById('betHigher').style.background = '#f0f2f5';
+                    document.getElementById('betHigher').style.borderColor = '#ccd0d5';
+                    document.getElementById('betHigher').style.color = '#1c1e21';
                     document.getElementById('betLower').style.background = '#f0f2f5';
+                    document.getElementById('betLower').style.borderColor = '#ccd0d5';
+                    document.getElementById('betLower').style.color = '#1c1e21';
+                    
+                    // Reload balances
+                    loadAccounts();
+                    updateLiveOdds();
                 } else {
-                    showToast(`❌ ${result.message || 'Bet failed'}`, 'error');
+                    const errorMsg = result.message || result.error || 'Bet failed';
+                    showToast(`❌ ${errorMsg}`, 'error');
+                    console.error('Bet rejected:', result);
                 }
             } catch (error) {
                 console.error('Bet error:', error);
-                showToast('❌ Network error placing bet', 'error');
+                showToast('❌ Network error placing bet. Check console.', 'error');
             }
         }
         
@@ -1575,12 +1790,6 @@
                 color = '#14f195'; // Green
                 price = cryptoPrices.sol || 0;
                 marketId = 'live_sol_market';
-            } else if (chain === 'bb') {
-                chainName = 'Blackbook';
-                symbol = '🔷 BB';
-                color = '#6366f1'; // Indigo
-                price = 0.01; // Stable price
-                marketId = 'live_bb_market';
             }
             
             // Store current chain in global variable
@@ -1597,6 +1806,9 @@
             const formattedPrice = '$' + price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             document.getElementById('livePriceDisplay').textContent = formattedPrice;
             
+            // Update price change indicator
+            updatePriceChange();
+            
             // Reset bet form
             document.getElementById('betAmount').value = '';
             document.getElementById('betHigher').style.background = '#f0f2f5';
@@ -1609,7 +1821,10 @@
             selectTimeframe('15min');
             loadLiveMarket();
             
-            console.log('Switched to', chainName, 'at', formattedPrice, '| Market ID:', marketId);
+            // Update live odds
+            updateLiveOdds();
+            
+            console.log('💱 Switched to', chainName, 'at', formattedPrice, '| Market ID:', marketId);
         }
         
         /// Fetch Bitcoin price and update chart
@@ -2547,14 +2762,37 @@
 
         async function loadAdminAccounts() {
             try {
+                console.log('📥 Loading admin accounts from blockchain...');
+                console.log('🌐 Fetching from: http://localhost:3000/accounts');
+                
                 const response = await fetch('http://localhost:3000/accounts');
+                console.log('📡 Response status:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+                }
+                
                 const data = await response.json();
+                console.log('✅ Raw data received:', data);
+                
+                if (!data.accounts || !Array.isArray(data.accounts)) {
+                    throw new Error('Invalid response format: expected accounts array');
+                }
+                
+                console.log('✅ Admin accounts loaded:', data.accounts.length, 'accounts');
+                data.accounts.forEach(acc => console.log(`  - ${acc.name}: ${acc.balance} BB @ ${acc.address}`));
                 
                 // Update global accounts array
                 accounts = data.accounts;
+                console.log('✅ Global accounts array updated');
                 
                 // Load account selector buttons
                 const selector = document.getElementById('adminAccountSelector');
+                if (!selector) {
+                    console.error('❌ adminAccountSelector element not found');
+                    return;
+                }
+                
                 selector.innerHTML = data.accounts.map(account => `
                     <button onclick="selectAdminAccount('${account.name}', this)" 
                             class="admin-select-btn" 
@@ -2565,90 +2803,162 @@
                         <div style="font-size: 11px; color: #999; margin-top: 6px; font-family: 'Courier New', monospace; word-break: break-all;">${account.address}</div>
                     </button>
                 `).join('');
+                console.log('✅ Account selector buttons rendered');
                 
                 // Populate transfer dropdowns
                 populateTransferDropdowns();
+                console.log('✅ Transfer dropdowns populated');
                 
                 // Load account cards for token management
                 const adminList = document.getElementById('adminAccountsList');
-                adminList.innerHTML = data.accounts.map(account => `
-                    <div class="account-card" id="card_${account.name}">
-                        <h3>👤 ${account.name.toUpperCase()}</h3>
-                        <div class="account-info">
-                            <strong>Balance:</strong> ${account.balance} BB
+                if (adminList) {
+                    adminList.innerHTML = data.accounts.map(account => `
+                        <div class="account-card" id="card_${account.name}">
+                            <h3>👤 ${account.name.toUpperCase()}</h3>
+                            <div class="account-info">
+                                <strong>Balance:</strong> ${account.balance} BB
+                            </div>
+                            <div class="account-info">
+                                <strong>Address:</strong> ${account.address.substring(0, 10)}...
+                            </div>
+                            <div class="account-actions">
+                                <input type="number" id="amount_${account.name}" placeholder="Amount" min="1" style="width: 70%;">
+                                <button onclick="addTokens('${account.name}')">Add</button>
+                            </div>
                         </div>
-                        <div class="account-info">
-                            <strong>Address:</strong> ${account.address.substring(0, 10)}...
-                        </div>
-                        <div class="account-actions">
-                            <input type="number" id="amount_${account.name}" placeholder="Amount" min="1" style="width: 70%;">
-                            <button onclick="addTokens('${account.name}')">Add</button>
-                        </div>
-                    </div>
-                `).join('');
+                    `).join('');
+                    console.log('✅ Admin account cards rendered');
+                }
             } catch (error) {
-                console.error('Failed to load admin accounts:', error);
-                showToast('Failed to load accounts for admin panel', 'error');
+                console.error('❌ Failed to load admin accounts');
+                console.error('   Error message:', error.message);
+                console.error('   Error details:', error);
+                console.error('   Stack trace:', error.stack);
+                showToast('❌ Failed to load accounts. Is the backend running on port 3000?', 'error');
             }
         }
 
         function selectAdminAccount(accountName, buttonElement) {
-            // Remove highlight from all buttons
-            document.querySelectorAll('.admin-select-btn').forEach(btn => {
-                btn.style.background = '#f0f2f5';
-                btn.style.borderColor = '#ccd0d5';
-                btn.style.color = '#1c1e21';
-            });
+            console.log('🔘 Admin account button clicked:', accountName);
             
-            // Highlight selected button
-            buttonElement.style.background = '#1877f2';
-            buttonElement.style.borderColor = '#1877f2';
-            buttonElement.style.color = 'white';
-            
-            // Update the current account
-            currentAccount = accountName;
-            
-            // Update the menu button to show selected account
-            const adminBtn = document.querySelector('.admin-button');
-            adminBtn.textContent = accountName.toUpperCase();
-            adminBtn.title = `Selected account: ${accountName}`;
-            
-            // Update transfer section title
-            document.getElementById('transferFromAccount').textContent = accountName.toUpperCase();
-            
-            // Populate quick transfer buttons with other accounts
-            const otherAccounts = accounts.filter(a => a.name !== accountName);
-            const quickTransferDiv = document.getElementById('quickTransferButtons');
-            quickTransferDiv.innerHTML = otherAccounts.map(account => `
-                <button onclick="setTransferRecipient('${account.name}')" 
-                        style="padding: 10px; background: #e8f4f8; color: #0066aa; border: 2px solid #0088cc; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 13px;"
-                        onmouseover="this.style.background='#0088cc'; this.style.color='white';"
-                        onmouseout="this.style.background='#e8f4f8'; this.style.color='#0066aa';">
-                    → ${account.name.toUpperCase()}
-                </button>
-            `).join('');
-            
-            // Update left sidebar account display
-            updateSelectedAccountDisplay(accountName);
-            
-            showToast(`Account switched to ${accountName}`, 'success');
+            try {
+                // Remove highlight from all buttons
+                document.querySelectorAll('.admin-select-btn').forEach(btn => {
+                    btn.style.background = '#f0f2f5';
+                    btn.style.borderColor = '#ccd0d5';
+                    btn.style.color = '#1c1e21';
+                });
+                
+                // Highlight selected button
+                buttonElement.style.background = '#1877f2';
+                buttonElement.style.borderColor = '#1877f2';
+                buttonElement.style.color = 'white';
+                
+                // Update the current account
+                currentAccount = accountName;
+                console.log('✅ currentAccount set to:', currentAccount);
+                
+                // Update the menu button to show selected account
+                const adminBtn = document.querySelector('.admin-button');
+                if (adminBtn) {
+                    adminBtn.textContent = accountName.toUpperCase();
+                    adminBtn.title = `Selected account: ${accountName}`;
+                }
+                
+                // Update transfer section title (safely)
+                const transferFromEl = document.getElementById('transferFromAccount');
+                if (transferFromEl) {
+                    transferFromEl.textContent = accountName.toUpperCase();
+                }
+                
+                // Populate quick transfer buttons with other accounts
+                const otherAccounts = accounts.filter(a => a.name !== accountName);
+                const quickTransferDiv = document.getElementById('quickTransferButtons');
+                if (quickTransferDiv) {
+                    quickTransferDiv.innerHTML = otherAccounts.map(account => `
+                        <button onclick="setTransferRecipient('${account.name}')" 
+                                style="padding: 10px; background: #e8f4f8; color: #0066aa; border: 2px solid #0088cc; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s; font-size: 13px;"
+                                onmouseover="this.style.background='#0088cc'; this.style.color='white';"
+                                onmouseout="this.style.background='#e8f4f8'; this.style.color='#0066aa';">
+                            → ${account.name.toUpperCase()}
+                        </button>
+                    `).join('');
+                }
+                
+                // Update left sidebar account display IMMEDIATELY with current data
+                console.log('📍 Updating sidebar display for:', accountName);
+                console.log('📊 Available accounts:', accounts.map(a => `${a.name}(${a.balance})`).join(', '));
+                
+                const account = accounts.find(a => a.name === accountName);
+                if (account) {
+                    console.log('✅ Found account object:', account);
+                    
+                    const displayDiv = document.getElementById('selectedAccountDisplay');
+                    console.log('🔍 Display div element:', displayDiv);
+                    
+                    if (!displayDiv) {
+                        console.error('❌ selectedAccountDisplay element not found in DOM!');
+                    } else {
+                        displayDiv.style.display = 'block';  // Show the display
+                        console.log('✅ Display div made visible');
+                        
+                        const nameEl = document.getElementById('selectedAccountName');
+                        const balanceEl = document.getElementById('selectedAccountBalance');
+                        
+                        if (nameEl && balanceEl) {
+                            nameEl.textContent = accountName.toUpperCase();
+                            balanceEl.textContent = `${account.balance} BB`;
+                            console.log('✅ Sidebar updated: ' + accountName.toUpperCase() + ' - ' + account.balance + ' BB');
+                        } else {
+                            console.error('❌ Name or balance element not found!');
+                        }
+                    }
+                } else {
+                    console.error('❌ Account not found in array for:', accountName);
+                    console.error('   Looking for name:', accountName);
+                    console.error('   Available names:', accounts.map(a => a.name).join(', '));
+                }
+                
+                showToast(`Account switched to ${accountName}`, 'success');
+            } catch (error) {
+                console.error('❌ Error in selectAdminAccount:', error);
+                console.error('   Error message:', error.message);
+                console.error('   Stack:', error.stack);
+            }
         }
 
         async function updateSelectedAccountDisplay(accountName) {
             try {
-                // Fetch the account balance
-                const response = await fetch(`http://localhost:3000/balance/${accountName}`);
-                const data = await response.json();
+                console.log('📍 updateSelectedAccountDisplay called for:', accountName);
                 
-                // Show the display
-                const displayDiv = document.getElementById('selectedAccountDisplay');
-                displayDiv.style.display = 'block';
+                // Get account info from the global accounts array (already loaded by loadAdminAccounts)
+                const account = accounts.find(a => a.name === accountName);
+                
+                if (!account) {
+                    console.error('❌ Account not found:', accountName, '| Available:', accounts.map(a => a.name).join(', '));
+                    return;
+                }
+                
+                console.log('✅ Found account:', account);
                 
                 // Update the name and balance
-                document.getElementById('selectedAccountName').textContent = accountName.toUpperCase();
-                document.getElementById('selectedAccountBalance').textContent = `${data.balance} BB`;
+                const nameEl = document.getElementById('selectedAccountName');
+                const balanceEl = document.getElementById('selectedAccountBalance');
+                
+                if (!nameEl || !balanceEl) {
+                    console.error('❌ Display elements not found in DOM');
+                    return;
+                }
+                
+                nameEl.textContent = accountName.toUpperCase();
+                balanceEl.textContent = `${account.balance} BB`;
+                
+                console.log('✅ Display updated:', {
+                    name: accountName.toUpperCase(),
+                    balance: `${account.balance} BB`
+                });
             } catch (error) {
-                console.error('Failed to update account display:', error);
+                console.error('❌ Error updating account display:', error);
             }
         }
 
@@ -2720,6 +3030,12 @@
             document.getElementById('transferFromBalance').textContent = `${account.name.toUpperCase()}: ${account.balance} BB`;
             document.getElementById('transferFromBalanceAfter').textContent = `${balanceAfter} BB`;
             balanceInfo.style.display = 'block';
+            
+            // Show selected account display when amount is entered
+            if (amount > 0) {
+                updateSelectedAccountDisplay(fromAccount);
+                console.log(`Transfer UI updated: ${fromAccount} with amount ${amount} BB`);
+            }
             
             // Update balance in real-time when amount changes
             amountInput.addEventListener('input', updateTransferFromUI);
