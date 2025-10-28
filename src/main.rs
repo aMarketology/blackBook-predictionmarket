@@ -79,11 +79,59 @@ impl PredictionMarket {
     }
 }
 
+// Live Crypto Price Bet - for 1-min and 15-min betting
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LivePriceBet {
+    pub id: String,
+    pub bettor: String,
+    pub asset: String,           // "BTC", "SOL"
+    pub direction: String,        // "HIGHER" or "LOWER"
+    pub entry_price: f64,
+    pub bet_amount: f64,
+    pub timeframe_seconds: u64,   // 60 or 900
+    pub created_at: u64,
+    pub expires_at: u64,
+    pub status: String,           // "ACTIVE", "WON", "LOST"
+    pub final_price: Option<f64>,
+}
+
+impl LivePriceBet {
+    pub fn new(bettor: String, asset: String, direction: String, entry_price: f64, bet_amount: f64, timeframe_seconds: u64) -> Self {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        Self {
+            id: format!("bet_{}", Uuid::new_v4().simple()),
+            bettor,
+            asset,
+            direction,
+            entry_price,
+            bet_amount,
+            timeframe_seconds,
+            created_at: now,
+            expires_at: now + timeframe_seconds,
+            status: "ACTIVE".to_string(),
+            final_price: None,
+        }
+    }
+    
+    pub fn is_expired(&self) -> bool {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        now >= self.expires_at
+    }
+}
+
 // Application state - simple prediction market storage
 #[derive(Debug)]
 pub struct AppState {
     pub ledger: Ledger,
     pub markets: HashMap<String, PredictionMarket>,
+    pub live_bets: Vec<LivePriceBet>,  // Store all live bets for history
 }
 
 impl AppState {
@@ -91,27 +139,31 @@ impl AppState {
         let mut state = Self {
             ledger: Ledger::new_full_node(),
             markets: HashMap::new(),
+            live_bets: Vec::new(),
         };
 
-        // Initialize 8 real blockchain accounts with 1000 BB tokens each
-        // Each account is a real wallet generated from the ledger
-        let accounts = vec![
-            ("alice", 1000.0, "Alice - Account 1"),
-            ("bob", 1000.0, "Bob - Account 2"),
-            ("charlie", 1000.0, "Charlie - Account 3"),
-            ("diana", 1000.0, "Diana - Account 4"),
-            ("ethan", 1000.0, "Ethan - Account 5"),
-            ("fiona", 1000.0, "Fiona - Account 6"),
-            ("george", 1000.0, "George - Account 7"),
-            ("hannah", 1000.0, "Hannah - Account 8"),
-        ];
-
-        // Initialize each account with 1000 BB tokens on the blockchain ledger
-        for (name, balance, memo) in accounts {
-            let _ = state.ledger.deposit(name, balance, memo);
+        // The ledger now has 8 real accounts with L1_ wallet addresses
+        // These are dynamically generated UUIDs in format: L1_<32 HEX UPPERCASE>
+        // All accounts already initialized with 1000 BB tokens on first run
+        
+        // Display the real blockchain accounts
+        println!("✅ BlackBook Prediction Market Blockchain Initialized");
+        println!("📊 Real Blockchain Accounts (L1 Wallets):");
+        
+        let account_names = vec!["ALICE", "BOB", "CHARLIE", "DIANA", "ETHAN", "FIONA", "GEORGE", "HANNAH"];
+        
+        for name in &account_names {
+            let address = state.ledger.accounts.get(*name).map(|a| a.clone()).unwrap_or_default();
+            let balance = state.ledger.get_balance(name);
+            println!("   👤 {} | Address: {} | Balance: {} BB", name, address, balance);
         }
 
-        println!("✅ Initialized 8 blockchain accounts with 1000 BB tokens each");
+        println!("💰 Total Circulating Supply: {} BB", 
+            account_names.iter().map(|n| state.ledger.get_balance(n)).sum::<f64>()
+        );
+        println!("🔗 Network: Layer 1 Blockchain (L1)");
+        println!("💎 Token: BlackBook (BB) - Stable at $0.01");
+        println!("");
 
         // Create sample markets
         state.create_sample_markets();
@@ -260,6 +312,16 @@ struct ScrapeRequest {
     category: String,
 }
 
+// Live Price Bet Request - for 1-min and 15-min crypto betting
+#[derive(Deserialize)]
+struct LivePriceBetRequest {
+    bettor: String,              // Account name or address
+    asset: String,               // "BTC" or "SOL"
+    direction: String,           // "HIGHER" or "LOWER"
+    amount: f64,                 // Amount to bet
+    timeframe: String,           // "1min" or "15min"
+}
+
 #[tokio::main]
 async fn main() {
     let state = Arc::new(Mutex::new(AppState::new()));
@@ -291,6 +353,12 @@ async fn main() {
         // Betting endpoints
         .route("/bet", post(place_bet))
         .route("/resolve/:market_id/:winning_option", post(resolve_market))
+        
+        // Live crypto price betting endpoints (1-min and 15-min)
+        .route("/live-bet", post(place_live_price_bet))
+        .route("/live-bets/active", get(get_active_live_bets))
+        .route("/live-bets/history/:bettor", get(get_live_bet_history))
+        .route("/live-bets/check/:bet_id", get(check_live_bet_status))
         
         // Health check
         .route("/health", get(health_check))
@@ -334,60 +402,35 @@ async fn health_check() -> Json<Value> {
 
 // Get all accounts for GOD MODE
 // These are REAL blockchain wallets on the BlackBook ledger
-// Each account has a complete transaction history stored immutably
+// Each account has a dynamically generated L1_<UUID> wallet address
+// All accounts initialized with 1000 BB tokens
 async fn get_all_accounts(
     State(state): State<SharedState>,
 ) -> Json<Value> {
     let app_state = state.lock().unwrap();
     
-    // Get all accounts from the REAL blockchain ledger
-    // Each account is a real wallet with 1000 BB tokens (BlackBook tokens)
-    let accounts: Vec<Value> = vec![
-        serde_json::json!({
-            "name": "alice",
-            "balance": app_state.ledger.get_balance("alice"),
-            "address": "0x1a1c1d1e1f1a1b1c1d1e1f1a1b1c1d1e1f1a1b1c"
-        }),
-        serde_json::json!({
-            "name": "bob",
-            "balance": app_state.ledger.get_balance("bob"),
-            "address": "0x2b2c2d2e2f2b2c2d2e2f2b2c2d2e2f2b2c2d2e2f"
-        }),
-        serde_json::json!({
-            "name": "charlie",
-            "balance": app_state.ledger.get_balance("charlie"),
-            "address": "0x3c3d3e3f3c3d3e3f3c3d3e3f3c3d3e3f3c3d3e3f"
-        }),
-        serde_json::json!({
-            "name": "diana",
-            "balance": app_state.ledger.get_balance("diana"),
-            "address": "0x4d4e4f4d4e4f4d4e4f4d4e4f4d4e4f4d4e4f4d4e"
-        }),
-        serde_json::json!({
-            "name": "ethan",
-            "balance": app_state.ledger.get_balance("ethan"),
-            "address": "0x5e5f5e5f5e5f5e5f5e5f5e5f5e5f5e5f5e5f5e5f"
-        }),
-        serde_json::json!({
-            "name": "fiona",
-            "balance": app_state.ledger.get_balance("fiona"),
-            "address": "0x6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f"
-        }),
-        serde_json::json!({
-            "name": "george",
-            "balance": app_state.ledger.get_balance("george"),
-            "address": "0x7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a"
-        }),
-        serde_json::json!({
-            "name": "hannah",
-            "balance": app_state.ledger.get_balance("hannah"),
-            "address": "0x8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
-        }),
-    ];
+    // Get all REAL blockchain accounts from the ledger
+    // Each account has a dynamically generated L1_<UUID> wallet address
+    // All accounts initialized with 1000 BB tokens
+    let mut accounts: Vec<Value> = Vec::new();
     
-    Json(serde_json::json!({
+    for (name, address) in &app_state.ledger.accounts {
+        let balance = app_state.ledger.get_balance(name);
+        accounts.push(json!({
+            "name": name,
+            "address": address,
+            "balance": balance,
+            "balance_symbol": "BB"
+        }));
+    }
+    
+    Json(json!({
         "success": true,
-        "accounts": accounts
+        "network": "Layer 1 Blockchain",
+        "token": "BlackBook (BB)",
+        "accounts": accounts,
+        "total_accounts": accounts.len(),
+        "total_supply": accounts.iter().map(|a| a["balance"].as_f64().unwrap_or(0.0)).sum::<f64>()
     }))
 }
 
@@ -425,7 +468,7 @@ async fn transfer_funds(
 ) -> Result<Json<Value>, StatusCode> {
     let mut app_state = state.lock().unwrap();
     
-    match app_state.ledger.transfer(&payload.from, &payload.to, payload.amount, &payload.memo) {
+    match app_state.ledger.transfer(&payload.from, &payload.to, payload.amount) {
         Ok(tx_id) => {
             Ok(Json(json!({
                 "success": true,
@@ -448,7 +491,7 @@ async fn get_user_transactions(
     Path(address): Path<String>
 ) -> Json<Value> {
     let app_state = state.lock().unwrap();
-    let transactions = app_state.ledger.get_transactions_for_user(&address);
+    let transactions = app_state.ledger.get_account_transactions(&address);
     
     Json(json!({
         "address": address,
@@ -539,7 +582,7 @@ async fn place_bet(
     
     // Now place the bet with mutable access
     let mut app_state = state.lock().unwrap();
-    match app_state.ledger.place_bet(&payload.account, &payload.market, payload.outcome, payload.amount) {
+    match app_state.ledger.place_bet(&payload.account, &payload.market, payload.amount) {
         Ok(tx_id) => {
             let user_balance = app_state.ledger.get_balance(&payload.account);
             
@@ -934,5 +977,228 @@ async fn get_solana_price() -> Json<Value> {
                 "error": format!("API error: {}", e)
             }))
         }
+    }
+}
+
+/// Place a live price bet on BTC or SOL for 1-min or 15-min timeframe
+async fn place_live_price_bet(
+    State(state): State<SharedState>,
+    Json(payload): Json<LivePriceBetRequest>
+) -> Result<Json<Value>, StatusCode> {
+    // Validate input
+    if !["BTC", "SOL"].contains(&payload.asset.as_str()) {
+        return Ok(Json(json!({
+            "success": false,
+            "error": "Asset must be BTC or SOL"
+        })));
+    }
+    
+    if !["HIGHER", "LOWER"].contains(&payload.direction.as_str()) {
+        return Ok(Json(json!({
+            "success": false,
+            "error": "Direction must be HIGHER or LOWER"
+        })));
+    }
+    
+    if !["1min", "15min"].contains(&payload.timeframe.as_str()) {
+        return Ok(Json(json!({
+            "success": false,
+            "error": "Timeframe must be 1min or 15min"
+        })));
+    }
+    
+    if payload.amount <= 0.0 {
+        return Ok(Json(json!({
+            "success": false,
+            "error": "Bet amount must be positive"
+        })));
+    }
+    
+    // Get current price
+    let current_price = if payload.asset == "BTC" {
+        get_btc_price().await
+    } else {
+        get_sol_price().await
+    };
+    
+    if current_price.is_none() {
+        return Ok(Json(json!({
+            "success": false,
+            "error": "Failed to get current price"
+        })));
+    }
+    
+    let entry_price = current_price.unwrap();
+    let timeframe_seconds = if payload.timeframe == "1min" { 60 } else { 900 };
+    
+    let mut app_state = state.lock().unwrap();
+    
+    // Deduct bet amount from account
+    let from_balance = app_state.ledger.get_balance(&payload.bettor);
+    if from_balance < payload.amount {
+        return Ok(Json(json!({
+            "success": false,
+            "error": format!("Insufficient balance: {} has {} BB but needs {}", 
+                payload.bettor, from_balance, payload.amount)
+        })));
+    }
+    
+    // Create live bet
+    let live_bet = LivePriceBet::new(
+        payload.bettor.clone(),
+        payload.asset.clone(),
+        payload.direction.clone(),
+        entry_price,
+        payload.amount,
+        timeframe_seconds
+    );
+    
+    let bet_id = live_bet.id.clone();
+    let expires_at = live_bet.expires_at;
+    
+    // Record the bet in ledger
+    match app_state.ledger.place_bet(&payload.bettor, &format!("live_bet_{}", payload.asset.to_lowercase()), payload.amount) {
+        Ok(_) => {
+            // Add to live bets
+            app_state.live_bets.push(live_bet);
+            
+            Ok(Json(json!({
+                "success": true,
+                "bet_id": bet_id,
+                "asset": payload.asset,
+                "direction": payload.direction,
+                "entry_price": entry_price,
+                "amount": payload.amount,
+                "timeframe": payload.timeframe,
+                "expires_at": expires_at,
+                "message": format!("Bet placed on {} {}: {} {} for {} seconds", 
+                    payload.asset, payload.direction, payload.amount, "BB", timeframe_seconds)
+            })))
+        },
+        Err(error) => {
+            Ok(Json(json!({
+                "success": false,
+                "error": error
+            })))
+        }
+    }
+}
+
+/// Get all active live bets
+async fn get_active_live_bets(
+    State(state): State<SharedState>
+) -> Json<Value> {
+    let app_state = state.lock().unwrap();
+    
+    let active_bets: Vec<Value> = app_state.live_bets
+        .iter()
+        .filter(|b| b.status == "ACTIVE" && !b.is_expired())
+        .map(|b| json!({
+            "id": b.id,
+            "bettor": b.bettor,
+            "asset": b.asset,
+            "direction": b.direction,
+            "entry_price": b.entry_price,
+            "amount": b.bet_amount,
+            "timeframe_seconds": b.timeframe_seconds,
+            "created_at": b.created_at,
+            "expires_at": b.expires_at,
+            "status": b.status
+        }))
+        .collect();
+    
+    Json(json!({
+        "success": true,
+        "active_bets": active_bets,
+        "count": active_bets.len()
+    }))
+}
+
+/// Get live bet history for a specific bettor
+async fn get_live_bet_history(
+    State(state): State<SharedState>,
+    Path(bettor): Path<String>
+) -> Json<Value> {
+    let app_state = state.lock().unwrap();
+    
+    let history: Vec<Value> = app_state.live_bets
+        .iter()
+        .filter(|b| b.bettor == bettor)
+        .map(|b| json!({
+            "id": b.id,
+            "asset": b.asset,
+            "direction": b.direction,
+            "entry_price": b.entry_price,
+            "final_price": b.final_price,
+            "amount": b.bet_amount,
+            "timeframe_seconds": b.timeframe_seconds,
+            "created_at": b.created_at,
+            "expires_at": b.expires_at,
+            "status": b.status
+        }))
+        .collect();
+    
+    Json(json!({
+        "success": true,
+        "bettor": bettor,
+        "bets": history,
+        "count": history.len()
+    }))
+}
+
+/// Check status of a specific live bet
+async fn check_live_bet_status(
+    State(state): State<SharedState>,
+    Path(bet_id): Path<String>
+) -> Result<Json<Value>, StatusCode> {
+    let app_state = state.lock().unwrap();
+    
+    if let Some(bet) = app_state.live_bets.iter().find(|b| b.id == bet_id) {
+        Ok(Json(json!({
+            "success": true,
+            "id": bet.id,
+            "bettor": bet.bettor,
+            "asset": bet.asset,
+            "direction": bet.direction,
+            "entry_price": bet.entry_price,
+            "final_price": bet.final_price,
+            "amount": bet.bet_amount,
+            "status": bet.status,
+            "is_expired": bet.is_expired(),
+            "created_at": bet.created_at,
+            "expires_at": bet.expires_at
+        })))
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
+}
+
+/// Helper to get BTC price
+async fn get_btc_price() -> Option<f64> {
+    let url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd";
+    
+    match reqwest::Client::new().get(url).send().await {
+        Ok(resp) => {
+            match resp.json::<serde_json::Value>().await {
+                Ok(data) => data["bitcoin"]["usd"].as_f64(),
+                Err(_) => None,
+            }
+        }
+        Err(_) => None,
+    }
+}
+
+/// Helper to get SOL price
+async fn get_sol_price() -> Option<f64> {
+    let url = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd";
+    
+    match reqwest::Client::new().get(url).send().await {
+        Ok(resp) => {
+            match resp.json::<serde_json::Value>().await {
+                Ok(data) => data["solana"]["usd"].as_f64(),
+                Err(_) => None,
+            }
+        }
+        Err(_) => None,
     }
 }
