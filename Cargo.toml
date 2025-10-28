@@ -29,6 +29,9 @@ rust_decimal_macros = "1.32"
 # HTTP client for blockchain interaction
 reqwest = { version = "0.11", features = ["json"] }
 
+# Web scraping for real-world event data
+scraper = "0.17"
+
 # Cryptography for blockchain
 sha2 = "0.10"
 sha3 = "0.10"

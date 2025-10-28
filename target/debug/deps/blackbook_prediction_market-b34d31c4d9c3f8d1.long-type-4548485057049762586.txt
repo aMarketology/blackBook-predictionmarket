@@ -1,0 +1,2 @@
+fn(axum::extract::State<Arc<std::sync::Mutex<AppState>>>) -> impl std::future::Future<Output = axum::Json<Value>> {get_live_btc_market}
+fn(axum::extract::State<Arc<std::sync::Mutex<AppState>>>) -> impl std::future::Future<Output = axum::Json<Value>> {get_live_btc_market}: Handler<_, _>
