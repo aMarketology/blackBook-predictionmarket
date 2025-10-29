@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+python serve_frontend.py --url "https://www.objectwire.org/does-doordash-take-snap" --ai-mock#!/usr/bin/env python3
 """
 Comprehensive Test Suite for BlackBook URL Scraping AI Agent
 ============================================================
