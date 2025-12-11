@@ -20,12 +20,14 @@ import os
 import sys
 import json
 import time
+import hashlib
 import subprocess
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from urllib.parse import urlparse
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 from pathlib import Path
+from datetime import datetime, timezone
 
 import click
 from rich.console import Console
@@ -48,8 +50,21 @@ load_dotenv()
 console = Console()
 
 # Configuration
-BLOCKCHAIN_URL = os.getenv("BLOCKCHAIN_API_URL", "http://localhost:8080")
+BLOCKCHAIN_URL = os.getenv("BLOCKCHAIN_API_URL", "http://localhost:1234")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+DEBUG_MODE = os.getenv("OBJECTWIRE_DEBUG", "false").lower() == "true"
+
+
+def debug_log(message: str, data: Any = None):
+    """Print debug message if debug mode is enabled."""
+    if DEBUG_MODE:
+        console.print(f"[dim cyan]🔍 DEBUG:[/] [dim]{message}[/]")
+        if data is not None:
+            if isinstance(data, dict):
+                console.print_json(data=data)
+            else:
+                console.print(f"[dim]{data}[/]")
+
 
 # Try importing OpenAI
 try:
@@ -214,12 +229,28 @@ def paste_from_clipboard() -> Optional[str]:
 # ─────────────────────────────────────────────────────────────
 
 class PredictionEvent(BaseModel):
+    """Prediction market event model matching blockchain API format."""
+    # Required fields
     title: str
     description: str
-    category: str
-    options: list[str]
-    confidence: float
+    outcomes: List[str]
     source_url: str
+    
+    # Dates (published is required)
+    published_date: str
+    freeze_date: Optional[str] = None
+    resolution_date: Optional[str] = None
+    
+    # Optional fields
+    source: Optional[str] = None  # ID from scraper/source
+    category: Optional[str] = None  # "crypto", "sports", "politics"
+    tags: Optional[List[str]] = None
+    market_type: str = "three_choice"
+    initial_probabilities: Optional[List[float]] = None  # Defaults to equal split if null
+    image_url: Optional[str] = None
+    
+    # Resolution rules (optional)
+    resolution_rules: Optional[Dict[str, Any]] = None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -256,13 +287,32 @@ def scrape_url(url: str) -> Optional[dict]:
     content = main.get_text("\n", strip=True)[:5000] if main else ""
     
     if len(content) < 100:
+        debug_log(f"Content too short ({len(content)} chars), returning None")
         return None
     
-    return {"title": title, "content": content, "url": url, "domain": urlparse(url).netloc}
+    result = {"title": title, "content": content, "url": url, "domain": urlparse(url).netloc}
+    debug_log(f"Scraped URL successfully", {
+        "title": title,
+        "content_length": len(content),
+        "domain": result["domain"]
+    })
+    return result
 
 
 def analyze(scraped: dict) -> PredictionEvent:
-    """Generate prediction event from scraped content."""
+    """Generate prediction market event from scraped content."""
+    debug_log(f"Analyzing scraped content from {scraped['domain']}")
+    
+    # Generate market_id from URL hash
+    url_hash = hashlib.md5(scraped['url'].encode()).hexdigest()[:12]
+    market_id = f"rss_market_{url_hash}"
+    debug_log(f"Generated market_id: {market_id}")
+    
+    # Current timestamp for published date
+    published_date = datetime.now(timezone.utc).isoformat()
+    
+    # Extract domain for source (optional ID)
+    source_domain = urlparse(scraped['url']).netloc
     
     # Use OpenAI if available
     if openai and OPENAI_API_KEY:
@@ -270,7 +320,16 @@ def analyze(scraped: dict) -> PredictionEvent:
             resp = openai.ChatCompletion.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "Extract a prediction market question from this article. Return JSON with: title (question), description, category, options (list of 2-3 choices), confidence (0-1), resolution_date (ISO format)."},
+                    {"role": "system", "content": """Extract a prediction market question from this article. Return JSON with:
+- title: A clear yes/no prediction question based on the article
+- description: Brief description of the prediction context
+- category: Category like "crypto", "politics", "sports", "technology", etc.
+- tags: Array of relevant tags
+- resolution_date: ISO8601 date when this prediction can be resolved (if determinable, otherwise null)
+- freeze_date: ISO8601 date when betting should freeze (if determinable, otherwise null)
+
+Example response:
+{"title": "Will Bitcoin reach $100k by end of 2025?", "description": "Based on analyst predictions...", "category": "crypto", "tags": ["bitcoin", "price"], "resolution_date": "2025-12-31T23:59:59Z", "freeze_date": null}"""},
                     {"role": "user", "content": f"Title: {scraped['title']}\n\nContent: {scraped['content'][:2000]}"}
                 ],
                 temperature=0.3,
@@ -282,44 +341,83 @@ def analyze(scraped: dict) -> PredictionEvent:
             end = text.rfind('}') + 1
             if start >= 0 and end > start:
                 data = json.loads(text[start:end])
-                return PredictionEvent(
-                    title=data.get('title', f"Prediction: {scraped['title'][:60]}?"),
+                debug_log("OpenAI response parsed", data)
+                event = PredictionEvent(
+                    source=market_id,  # Use market_id as optional source ID
+                    title=data.get('title', f"Will {scraped['title'][:60]} happen?"),
                     description=data.get('description', scraped['content'][:200]),
-                    category=data.get('category', 'general'),
-                    options=data.get('options', ['Yes', 'No']),
-                    confidence=float(data.get('confidence', 0.7)),
-                    source_url=scraped['url']
+                    category=data.get('category'),
+                    tags=data.get('tags'),
+                    market_type="three_choice",
+                    outcomes=["Yes", "No Change", "No"],
+                    initial_probabilities=[0.49, 0.02, 0.49],
+                    source_url=scraped['url'],
+                    image_url=None,
+                    published_date=published_date,
+                    freeze_date=data.get('freeze_date'),
+                    resolution_date=data.get('resolution_date')
                 )
+                debug_log("Created PredictionEvent (OpenAI)", event.model_dump())
+                return event
         except Exception as e:
-            pass  # Fall through to fallback
+            debug_log(f"OpenAI failed: {e}, falling back to simple extraction")
     
     # Fallback: Simple extraction
-    return PredictionEvent(
+    debug_log("Using fallback extraction (no OpenAI)")
+    event = PredictionEvent(
+        source=market_id,  # Use market_id as optional source ID
         title=f"Will '{scraped['title'][:50]}' predictions come true?",
         description=f"Based on: {scraped['title']}",
-        category="general",
-        options=["Yes", "No", "Partially"],
-        confidence=0.5,
-        source_url=scraped['url']
+        category=None,
+        tags=None,
+        market_type="three_choice",
+        outcomes=["Yes", "No Change", "No"],
+        initial_probabilities=[0.49, 0.02, 0.49],
+        source_url=scraped['url'],
+        image_url=None,
+        published_date=published_date,
+        freeze_date=None,
+        resolution_date=None
     )
+    debug_log("Created PredictionEvent (fallback)", event.model_dump())
+    return event
 
 
 def post_to_blockchain(event: PredictionEvent) -> Optional[dict]:
     """Post event to blockchain API."""
+    debug_log(f"Posting to blockchain: {BLOCKCHAIN_URL}/ai/events")
+    
+    # Build payload in new market format with nested dates
     payload = {
-        "source": {
-            "domain": "objectwire-agent",
-            "url": event.source_url
-        },
-        "event": {
-            "title": event.title,
-            "description": event.description,
-            "category": event.category,
-            "options": event.options,
-            "confidence": event.confidence,
-            "source_url": event.source_url
+        "title": event.title,
+        "description": event.description,
+        "market_type": event.market_type,
+        "outcomes": event.outcomes,
+        "source_url": event.source_url,
+        "dates": {
+            "published": event.published_date,
         }
     }
+    
+    # Add optional fields if present
+    if event.source:
+        payload["source"] = event.source
+    if event.category:
+        payload["category"] = event.category
+    if event.tags:
+        payload["tags"] = event.tags
+    if event.initial_probabilities:
+        payload["initial_probabilities"] = event.initial_probabilities
+    if event.image_url:
+        payload["image_url"] = event.image_url
+    if event.freeze_date:
+        payload["dates"]["freeze"] = event.freeze_date
+    if event.resolution_date:
+        payload["dates"]["resolution"] = event.resolution_date
+    if event.resolution_rules:
+        payload["resolution_rules"] = event.resolution_rules
+    
+    debug_log("Payload being sent", payload)
     
     try:
         # Post event directly (no health check needed)
@@ -329,12 +427,74 @@ def post_to_blockchain(event: PredictionEvent) -> Optional[dict]:
             headers={"Content-Type": "application/json"},
             timeout=30
         )
+        debug_log(f"Response status: {resp.status_code}")
         resp.raise_for_status()
-        return resp.json()
+        result = resp.json()
+        debug_log("Blockchain response", result)
+        return result
     
     except requests.exceptions.RequestException as e:
+        debug_log(f"Request failed: {e}")
         console.print(f"[red]❌ Failed to post to blockchain:[/] {e}")
         return None
+
+
+def build_market_payload(event: PredictionEvent) -> dict:
+    """Build the market payload for display/preview."""
+    payload = {
+        "title": event.title,
+        "description": event.description,
+        "market_type": event.market_type,
+        "outcomes": event.outcomes,
+        "source_url": event.source_url,
+        "dates": {
+            "published": event.published_date,
+        }
+    }
+    
+    # Add optional fields if present
+    if event.source:
+        payload["source"] = event.source
+    if event.category:
+        payload["category"] = event.category
+    if event.tags:
+        payload["tags"] = event.tags
+    if event.initial_probabilities:
+        payload["initial_probabilities"] = event.initial_probabilities
+    if event.image_url:
+        payload["image_url"] = event.image_url
+    if event.freeze_date:
+        payload["dates"]["freeze"] = event.freeze_date
+    if event.resolution_date:
+        payload["dates"]["resolution"] = event.resolution_date
+    if event.resolution_rules:
+        payload["resolution_rules"] = event.resolution_rules
+    
+    return payload
+
+
+def display_market_panel(event: PredictionEvent, title: str = "🎯 Market Event"):
+    """Display a market event in a formatted panel."""
+    resolution = event.resolution_date or "Not set"
+    freeze = event.freeze_date or "Not set"
+    category = event.category or "Uncategorized"
+    tags = ", ".join(event.tags) if event.tags else "None"
+    probs = event.initial_probabilities or []
+    
+    console.print(Panel(
+        f"[bold cyan]{event.title}[/]\n\n"
+        f"{event.description}\n\n"
+        f"[dim]Source ID:[/] {event.source or 'Auto-generated'}\n"
+        f"[dim]Category:[/] {category}\n"
+        f"[dim]Tags:[/] {tags}\n"
+        f"[dim]Outcomes:[/] {' | '.join(event.outcomes)}\n"
+        f"[dim]Probabilities:[/] {probs}\n"
+        f"[dim]Published:[/] {event.published_date}\n"
+        f"[dim]Freeze:[/] {freeze}\n"
+        f"[dim]Resolution:[/] {resolution}",
+        title=title,
+        border_style="green"
+    ))
 
 
 def parse_rss(url: str) -> Optional[dict]:
@@ -446,6 +606,7 @@ def show_help():
 | `paste` or `v` | Paste URL from clipboard and process it |
 | `test` | Test blockchain connectivity |
 | `status` | Check system status |
+| `debug` | Toggle debug mode (verbose logging) |
 | `help` | Show this help |
 | `exit` or `q` | Quit ObjectWire |
 
@@ -464,6 +625,7 @@ v                                    # Paste & process URL from clipboard
 https://feeds.bbci.co.uk/news/rss.xml
 copy
 post
+debug                                # Enable debug mode
 ```
 """
     console.print(Markdown(help_md))
@@ -534,15 +696,6 @@ def interactive_mode():
                     item = last_rss_items[article_num - 1]
                     article_url = item["link"]
                     
-                    # Parse output format options
-                    show_json = "json" in args.lower()
-                    show_xml = "xml" in args.lower()
-                    
-                    # Default to showing the prediction panel if no format specified
-                    if not show_json and not show_xml:
-                        show_json = False
-                        show_xml = False
-                    
                     console.print(f"\n[dim]Scraping article {article_num}: {item['title'][:50]}...[/]")
                     
                     with console.status("[green]Scraping article..."):
@@ -553,28 +706,28 @@ def interactive_mode():
                         continue
                     
                     last_event = analyze(data)
-                    output = last_event.model_dump()
                     
-                    if show_json or show_xml:
-                        if show_json:
-                            console.print("\n[bold orange3]═══ JSON ═══[/]")
-                            console.print_json(data=output)
-                        if show_xml:
-                            console.print("\n[bold orange3]═══ XML ═══[/]")
-                            print_xml(output, root_name="prediction_event")
+                    # Show the market event panel
+                    display_market_panel(last_event)
+                    
+                    # Build and show the payload being sent
+                    payload = build_market_payload(last_event)
+                    console.print("\n[bold cyan]═══ Payload ═══[/]")
+                    console.print_json(data=payload)
+                    
+                    # Auto-post to blockchain
+                    with console.status("[green]Posting to blockchain..."):
+                        result = post_to_blockchain(last_event)
+                    
+                    if result:
+                        console.print(f"\n[green]✓ Posted to blockchain![/]")
+                        if isinstance(result, dict):
+                            event_id = result.get('id') or result.get('market_id') or result.get('event_id')
+                            if event_id:
+                                console.print(f"[dim]Market ID: {event_id}[/]")
                     else:
-                        # Show prediction panel
-                        console.print(Panel(
-                            f"[bold cyan]{last_event.title}[/]\n\n"
-                            f"{last_event.description}\n\n"
-                            f"[dim]Options:[/] {', '.join(last_event.options)}\n"
-                            f"[dim]Confidence:[/] {last_event.confidence:.0%}\n"
-                            f"[dim]Resolves:[/] {last_event.resolution_date}",
-                            title="🎯 Prediction Event",
-                            border_style="green"
-                        ))
+                        console.print("[yellow]⚠ Could not post to blockchain (service may be offline)[/]")
                     
-                    console.print(f"\n[dim]Tip: Type 'post' to send to blockchain, 'copy' to copy, or '{article_num} json xml' for both formats[/]")
                     continue
                 else:
                     console.print(f"[red]Invalid article number. Choose 1-{len(last_rss_items)}[/]")
@@ -584,6 +737,13 @@ def interactive_mode():
             if action in ("exit", "quit", "q"):
                 console.print("[yellow]👋 Goodbye![/]")
                 break
+            
+            # Debug toggle
+            elif action == "debug":
+                global DEBUG_MODE
+                DEBUG_MODE = not DEBUG_MODE
+                status = "[green]enabled[/]" if DEBUG_MODE else "[yellow]disabled[/]"
+                console.print(f"[dim cyan]🔍 Debug mode {status}[/]")
             
             # Help
             elif action == "help":
@@ -607,14 +767,7 @@ def interactive_mode():
                     continue
                 
                 last_event = analyze(data)
-                console.print(Panel(
-                    f"[bold cyan]{last_event.title}[/]\n\n"
-                    f"{last_event.description}\n\n"
-                    f"[dim]Options:[/] {', '.join(last_event.options)}\n"
-                    f"[dim]Confidence:[/] {last_event.confidence:.0%}",
-                    title="🎯 Prediction Event",
-                    border_style="green"
-                ))
+                display_market_panel(last_event)
                 
                 # Auto-post to blockchain
                 with console.status("[green]Posting to blockchain..."):
@@ -664,26 +817,13 @@ def interactive_mode():
                     continue
                 
                 # Show preview data
-                payload = {
-                    "source": {
-                        "domain": "objectwire-agent",
-                        "url": last_event.source_url
-                    },
-                    "event": {
-                        "title": last_event.title,
-                        "description": last_event.description,
-                        "category": last_event.category,
-                        "options": last_event.options,
-                        "confidence": last_event.confidence,
-                        "source_url": last_event.source_url
-                    }
-                }
+                payload = build_market_payload(last_event)
                 
                 console.print("\n[bold cyan]═══ JSON Preview ═══[/]")
                 console.print_json(data=payload)
                 
                 console.print("\n[bold cyan]═══ XML Preview ═══[/]")
-                print_xml(payload, root_name="blockchain_payload")
+                print_xml(payload, root_name="market_event")
                 
                 # Confirm before posting
                 confirm = session.prompt("\n[yellow]Post to blockchain? (y/n):[/] ").strip().lower()
@@ -696,7 +836,7 @@ def interactive_mode():
                 
                 if result:
                     event_id = result.get('id') or result.get('market_id') or result.get('event_id') if isinstance(result, dict) else result
-                    console.print(f"[green]✓ Posted! Event ID:[/] [bold]{event_id}[/]")
+                    console.print(f"[green]✓ Posted! Market ID:[/] [bold]{event_id}[/]")
                 else:
                     console.print("[red]❌ Failed to post to blockchain[/]")
             
@@ -757,14 +897,7 @@ def interactive_mode():
                         
                         if data:
                             last_event = analyze(data)
-                            console.print(Panel(
-                                f"[bold cyan]{last_event.title}[/]\n\n"
-                                f"{last_event.description}\n\n"
-                                f"[dim]Options:[/] {', '.join(last_event.options)}\n"
-                                f"[dim]Confidence:[/] {last_event.confidence:.0%}",
-                                title="🎯 Prediction Event",
-                                border_style="green"
-                            ))
+                            display_market_panel(last_event)
                             
                             # Auto-post to blockchain
                             with console.status("[green]Posting to blockchain..."):
@@ -775,7 +908,7 @@ def interactive_mode():
                                 if isinstance(result, dict):
                                     event_id = result.get('id') or result.get('market_id') or result.get('event_id')
                                     if event_id:
-                                        console.print(f"[dim]Event ID: {event_id}[/]")
+                                        console.print(f"[dim]Market ID: {event_id}[/]")
                             else:
                                 console.print("[yellow]⚠ Could not post to blockchain (service may be offline)[/]")
                         else:
@@ -810,8 +943,7 @@ def interactive_mode():
                             table.add_row(str(i), item["title"][:55], link)
                         
                         console.print(table)
-                        console.print(f"\n[dim]Type 1, 2, or 3 to scrape. Add 'json' or 'xml' for formatted output.[/]")
-                        console.print(f"[dim]Example: '1 json' or '2 xml' or '3 json xml'[/]")
+                        console.print(f"\n[dim]Type 1, 2, or 3 to scrape and post to blockchain.[/]")
                     else:
                         # Not RSS, try scraping as webpage
                         with console.status("[green]Scraping URL..."):
@@ -819,14 +951,7 @@ def interactive_mode():
                         
                         if data:
                             last_event = analyze(data)
-                            console.print(Panel(
-                                f"[bold cyan]{last_event.title}[/]\n\n"
-                                f"{last_event.description}\n\n"
-                                f"[dim]Options:[/] {', '.join(last_event.options)}\n"
-                                f"[dim]Confidence:[/] {last_event.confidence:.0%}",
-                                title="🎯 Prediction Event",
-                                border_style="green"
-                            ))
+                            display_market_panel(last_event)
                             
                             # Auto-post to blockchain
                             with console.status("[green]Posting to blockchain..."):
@@ -837,7 +962,7 @@ def interactive_mode():
                                 if isinstance(result, dict):
                                     event_id = result.get('id') or result.get('market_id') or result.get('event_id')
                                     if event_id:
-                                        console.print(f"[dim]Event ID: {event_id}[/]")
+                                        console.print(f"[dim]Market ID: {event_id}[/]")
                             else:
                                 console.print("[yellow]⚠ Could not post to blockchain (service may be offline)[/]")
                         else:
@@ -860,9 +985,15 @@ def interactive_mode():
 @click.group(invoke_without_command=True)
 @click.version_option(version="0.1.0", prog_name="objectwire")
 @click.option("--dev", is_flag=True, help="Run in dev mode with auto-reload on file changes")
+@click.option("--debug", is_flag=True, help="Enable debug mode with verbose logging")
 @click.pass_context
-def main(ctx, dev: bool):
+def main(ctx, dev: bool, debug: bool):
     """🔌 ObjectWire - AI-Powered RSS/URL Scraper Agent for Prediction Markets"""
+    global DEBUG_MODE
+    if debug:
+        DEBUG_MODE = True
+        console.print("[dim cyan]🔍 Debug mode enabled[/]")
+    
     if dev:
         run_dev_mode()
     elif ctx.invoked_subcommand is None:
@@ -887,21 +1018,8 @@ def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool):
     event = analyze(data)
     output = event.model_dump()
     
-    # Build payload in correct format
-    payload = {
-        "source": {
-            "domain": "objectwire-agent",
-            "url": event.source_url
-        },
-        "event": {
-            "title": event.title,
-            "description": event.description,
-            "category": event.category,
-            "options": event.options,
-            "confidence": event.confidence,
-            "source_url": event.source_url
-        }
-    }
+    # Build payload in new market format
+    payload = build_market_payload(event)
     
     # If posting explicitly with --post flag, show preview first
     if post:
@@ -927,19 +1045,12 @@ def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool):
     
     # Output format selection
     elif as_xml:
-        print_xml(output, root_name="prediction_event")
+        print_xml(output, root_name="market_event")
     elif as_json:
         console.print_json(data=output)
     else:
         # Show event and auto-post
-        console.print(Panel(
-            f"[bold cyan]{event.title}[/]\n\n"
-            f"{event.description}\n\n"
-            f"[dim]Options:[/] {', '.join(event.options)}\n"
-            f"[dim]Confidence:[/] {event.confidence:.0%}",
-            title="🎯 Prediction Event",
-            border_style="green"
-        ))
+        display_market_panel(event)
         
         # Auto-post to blockchain
         with console.status("[green]Posting to blockchain..."):
@@ -950,7 +1061,7 @@ def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool):
             if isinstance(result, dict):
                 event_id = result.get('id') or result.get('market_id') or result.get('event_id')
                 if event_id:
-                    console.print(f"[dim]Event ID: {event_id}[/]")
+                    console.print(f"[dim]Market ID: {event_id}[/]")
         else:
             console.print("[yellow]⚠ Could not post to blockchain (service may be offline)[/]")
 
@@ -1010,27 +1121,14 @@ def post_command(url: str, as_json: bool, as_xml: bool, yes: bool):
         sys.exit(1)
     
     event = analyze(data)
-    payload = {
-        "source": {
-            "domain": "objectwire-agent",
-            "url": event.source_url
-        },
-        "event": {
-            "title": event.title,
-            "description": event.description,
-            "category": event.category,
-            "options": event.options,
-            "confidence": event.confidence,
-            "source_url": event.source_url
-        }
-    }
+    payload = build_market_payload(event)
     
     # Show preview
     console.print("\n[bold cyan]═══ JSON Preview ═══[/]")
     console.print_json(data=payload)
     
     console.print("\n[bold cyan]═══ XML Preview ═══[/]")
-    print_xml(payload, root_name="blockchain_payload")
+    print_xml(payload, root_name="market_event")
     
     # Confirm before posting (unless --yes flag)
     if not yes:
@@ -1050,23 +1148,23 @@ def post_command(url: str, as_json: bool, as_xml: bool, yes: bool):
         output['status'] = 'failed'
     
     if as_xml:
-        print_xml(output, root_name="blockchain_result")
+        print_xml(output, root_name="market_result")
     elif as_json:
         console.print_json(data=output)
     else:
         if result:
             event_id = result.get('id') or result.get('market_id') or result.get('event_id') if isinstance(result, dict) else result
             console.print(Panel(
-                f"[bold cyan]{event.title}[/]\n\n"
+                f"[bold cyan]{event.meta_title}[/]\n\n"
                 f"[green]✓ Successfully posted to blockchain![/]\n"
-                f"[dim]Event ID:[/] [bold]{event_id}[/]\n\n"
-                f"[dim]Options:[/] {', '.join(event.options)}",
-                title="🎯 Posted Event",
+                f"[dim]Market ID:[/] [bold]{event_id}[/]\n\n"
+                f"[dim]Outcomes:[/] {' | '.join(event.outcomes)}",
+                title="🎯 Posted Market",
                 border_style="green"
             ))
         else:
             console.print(Panel(
-                f"[bold cyan]{event.title}[/]\n\n"
+                f"[bold cyan]{event.meta_title}[/]\n\n"
                 f"[red]❌ Failed to post to blockchain[/]\n\n"
                 f"[dim]Check 'objectwire test' for connectivity issues[/]",
                 title="⚠️ Post Failed",
