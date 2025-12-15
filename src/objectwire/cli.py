@@ -66,6 +66,24 @@ def debug_log(message: str, data: Any = None):
                 console.print(f"[dim]{data}[/]")
 
 
+import re
+
+def generate_market_id(title: str, url: str) -> str:
+    """Generate a short market ID from first 3-5 words of title with hash suffix."""
+    # Clean the title and get words
+    clean = re.sub(r'[^a-z0-9\s]', '', title.lower())
+    words = clean.split()
+    
+    # Take first 3-5 meaningful words (skip very short words)
+    meaningful = [w for w in words if len(w) > 2][:4]
+    slug = '-'.join(meaningful) if meaningful else 'market'
+    
+    # Add short hash suffix for uniqueness
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:6]
+    
+    return f"{slug}-{url_hash}"
+
+
 # Try importing OpenAI
 try:
     import openai
@@ -303,9 +321,8 @@ def analyze(scraped: dict) -> PredictionEvent:
     """Generate prediction market event from scraped content."""
     debug_log(f"Analyzing scraped content from {scraped['domain']}")
     
-    # Generate market_id from URL hash
-    url_hash = hashlib.md5(scraped['url'].encode()).hexdigest()[:12]
-    market_id = f"rss_market_{url_hash}"
+    # Generate market_id from title (will be updated after we get the final title)
+    market_id = generate_market_id(scraped['title'], scraped['url'])
     debug_log(f"Generated market_id: {market_id}")
     
     # Current timestamp for published date
@@ -385,7 +402,7 @@ Example response:
 
 def post_to_blockchain(event: PredictionEvent) -> Optional[dict]:
     """Post event to blockchain API."""
-    debug_log(f"Posting to blockchain: {BLOCKCHAIN_URL}/ai/events")
+    debug_log(f"Posting to blockchain: {BLOCKCHAIN_URL}/markets")
     
     # Build payload in new market format with nested dates
     payload = {
@@ -422,7 +439,7 @@ def post_to_blockchain(event: PredictionEvent) -> Optional[dict]:
     try:
         # Post event directly (no health check needed)
         resp = requests.post(
-            f"{BLOCKCHAIN_URL}/ai/events",
+            f"{BLOCKCHAIN_URL}/markets",
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30
@@ -1201,18 +1218,18 @@ def test():
     except Exception as e:
         table.add_row("Blockchain Health", "[red]✗ FAIL[/]", str(e)[:40])
     
-    # Test 2: AI events endpoint
+    # Test 2: Markets endpoint
     try:
-        with console.status("[green]Testing AI events endpoint..."):
-            r = requests.options(f"{BLOCKCHAIN_URL}/ai/events", timeout=5)
+        with console.status("[green]Testing markets endpoint..."):
+            r = requests.options(f"{BLOCKCHAIN_URL}/markets", timeout=5)
         if r.status_code in (200, 204, 405):  # 405 = method not allowed is OK (means endpoint exists)
-            table.add_row("AI Events Endpoint", "[green]✓ PASS[/]", f"Endpoint reachable")
+            table.add_row("Markets Endpoint", "[green]✓ PASS[/]", f"Endpoint reachable")
         else:
-            table.add_row("AI Events Endpoint", "[yellow]? UNKNOWN[/]", f"Status: {r.status_code}")
+            table.add_row("Markets Endpoint", "[yellow]? UNKNOWN[/]", f"Status: {r.status_code}")
     except requests.exceptions.ConnectionError:
-        table.add_row("AI Events Endpoint", "[red]✗ FAIL[/]", "Connection refused")
+        table.add_row("Markets Endpoint", "[red]✗ FAIL[/]", "Connection refused")
     except Exception as e:
-        table.add_row("AI Events Endpoint", "[red]✗ FAIL[/]", str(e)[:40])
+        table.add_row("Markets Endpoint", "[red]✗ FAIL[/]", str(e)[:40])
     
     # Test 3: OpenAI API
     if OPENAI_API_KEY:

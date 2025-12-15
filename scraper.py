@@ -14,6 +14,8 @@ Usage:
 import os
 import sys
 import json
+import re
+import hashlib
 import argparse
 import time
 from urllib.parse import urlparse
@@ -27,8 +29,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration
-BLOCKCHAIN_URL = os.getenv("BLOCKCHAIN_API_URL", "http://localhost:8080")
+BLOCKCHAIN_URL = os.getenv("BLOCKCHAIN_API_URL", "http://localhost:1234")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+
+def generate_market_id(title: str, url: str) -> str:
+    """Generate a short market ID from first 3-5 words of title with hash suffix."""
+    # Clean the title and get words
+    clean = re.sub(r'[^a-z0-9\s]', '', title.lower())
+    words = clean.split()
+    
+    # Take first 3-5 meaningful words (skip very short words)
+    meaningful = [w for w in words if len(w) > 2][:4]
+    slug = '-'.join(meaningful) if meaningful else 'market'
+    
+    # Add short hash suffix for uniqueness
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:6]
+    
+    return f"{slug}-{url_hash}"
+
 
 # Try importing OpenAI
 try:
@@ -125,8 +144,8 @@ def analyze(scraped: dict) -> PredictionEvent:
     return PredictionEvent(
         title=f"Will '{scraped['title'][:50]}' predictions come true?",
         description=f"Based on: {scraped['title']}",
-        category="general",
-        options=["Yes", "No", "Partially"],
+        category="Uncategorized",
+        options=["Yes", "No Change", "No"],
         confidence=0.5,
         source_url=scraped['url'],
         resolution_date="2025-12-31T23:59:00-05:00"
@@ -134,33 +153,57 @@ def analyze(scraped: dict) -> PredictionEvent:
 
 
 def post_to_blockchain(event: PredictionEvent) -> Optional[str]:
-    """Post event to blockchain API."""
+    """Post event to markets API."""
+    from datetime import datetime, timezone
+    
+    # Generate a human-readable source_id from the title
+    source_id = generate_market_id(event.title, event.source_url)
+    
+    # Build payload for /markets endpoint
     payload = {
-        "source": {"domain": urlparse(event.source_url).netloc, "url": event.source_url},
-        "event": event.model_dump()
+        "title": event.title,
+        "description": event.description,
+        "source_id": source_id,
+        "category": event.category.capitalize() if event.category != "general" else "Uncategorized",
+        "outcomes": event.options if len(event.options) >= 2 else ["Yes", "No Change", "No"],
+        "probabilities": _calculate_probabilities(len(event.options), event.confidence),
+        "published": datetime.now(timezone.utc).isoformat()
     }
     
     try:
-        # Health check
-        health = requests.get(f"{BLOCKCHAIN_URL}/health", timeout=5)
-        if health.status_code != 200:
-            print(f"❌ Blockchain not healthy: {health.status_code}", file=sys.stderr)
-            return None
-        
-        # Post event
+        # Post to /markets endpoint
         resp = requests.post(
-            f"{BLOCKCHAIN_URL}/ai/events",
+            f"{BLOCKCHAIN_URL}/markets",
             json=payload,
             headers={"Content-Type": "application/json"},
             timeout=30
         )
         resp.raise_for_status()
         data = resp.json()
-        return data.get('id') or data.get('market_id') or data.get('event_id')
+        return data.get('id') or data.get('market_id') or data.get('source_id')
     
     except requests.exceptions.RequestException as e:
-        print(f"❌ Blockchain error: {e}", file=sys.stderr)
+        print(f"❌ Markets API error: {e}", file=sys.stderr)
         return None
+
+
+def _calculate_probabilities(num_options: int, confidence: float) -> list[float]:
+    """Calculate probabilities for outcomes based on confidence."""
+    if num_options == 2:
+        return [round(confidence, 2), round(1 - confidence, 2)]
+    elif num_options == 3:
+        # For 3 options: Yes, No Change/Partial, No
+        yes_prob = confidence * 0.49 / 0.5 if confidence <= 0.5 else 0.49
+        no_prob = (1 - confidence) * 0.49 / 0.5 if confidence >= 0.5 else 0.49
+        middle_prob = round(1 - yes_prob - no_prob, 2)
+        return [round(yes_prob, 2), middle_prob, round(no_prob, 2)]
+    else:
+        # Distribute evenly
+        base = round(1 / num_options, 2)
+        probs = [base] * num_options
+        # Adjust last to ensure sum = 1
+        probs[-1] = round(1 - sum(probs[:-1]), 2)
+        return probs
 
 
 def main():
