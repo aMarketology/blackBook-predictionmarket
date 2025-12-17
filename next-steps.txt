@@ -1,0 +1,431 @@
+================================================================================
+                    OBJECTWIRE - NEXT STEPS ROADMAP
+                    Social Prediction Market Scraper
+                    + Article Drafting Engine
+================================================================================
+
+Last Updated: December 14, 2025
+Status: Active Development
+
+PURPOSE:
+- Scrape social events from RSS feeds, URLs, and APIs
+- Generate structured prediction markets for blockchain
+- Draft articles/content based on scraped market opportunities
+- Track creator metrics and velocity events in real-time
+
+================================================================================
+PHASE 1: IMMEDIATE (This Week)
+================================================================================
+
+[ ] 1.1 YouTube API Integration
+    - Get YouTube Data API v3 credentials
+    - Implement video stats fetcher (views, likes, comments)
+    - Implement channel stats fetcher (subscribers, total views)
+    - Add rate limiting and caching
+    - File: src/objectwire/oracles/youtube.py
+
+[ ] 1.2 Velocity Market Generator
+    - Auto-detect "velocity potential" in scraped articles
+    - Generate timeframe suggestions (6h, 12h, 24h, 48h, 7d)
+    - Calculate target thresholds from historical data
+    - Add "Will X hit Y views in Z hours?" template
+    - Example: "Will GTA VI Trailer #2 hit 100M views in 24 hours?"
+
+[ ] 1.3 Creator Database
+    - Build JSON/SQLite database of tracked creators
+    - Fields: name, platform, channel_id, avg_views, subscribers
+    - Auto-populate from scraped URLs
+    - Track: MrBeast, Sidemen, KSI, Logan Paul, IShowSpeed, Kai Cenat
+    - File: data/creators.json
+
+[ ] 1.4 Resolution Rules Engine
+    - Define resolution rule schema
+    - Add API endpoint checker
+    - Implement countdown timer display
+    - Auto-resolve markets when timeframe expires
+
+[ ] 1.5 Article Drafting Engine (NEW)
+    - Generate article drafts from scraped market opportunities
+    - Templates for: market analysis, creator profiles, trend reports
+    - Auto-include relevant stats and predictions
+    - Output formats: Markdown, HTML, JSON
+    - CLI command: `objectwire draft <url>`
+    - File: src/objectwire/drafts/article_generator.py
+
+================================================================================
+PHASE 2: SHORT-TERM (Next 2 Weeks)
+================================================================================
+
+[ ] 2.1 Multi-Platform Support
+    - Twitch API integration (followers, concurrent viewers)
+    - Twitter/X API integration (followers, engagement)
+    - TikTok scraping (views, likes - no official API)
+    - Instagram scraping (followers, engagement)
+
+[ ] 2.2 RSS Feed Improvements  
+    - Add YouTube channel RSS auto-discovery
+    - Add Twitch stream start notifications
+    - Add Twitter list monitoring
+    - Implement feed polling daemon
+
+[ ] 2.3 Smart Market Templates
+    Templates to add:
+    
+    METRIC MARKETS (Low Variance - Verifiable Data):
+    - "Over/Under" markets for view counts
+    - "Race" markets (Creator A vs Creator B)
+    - "Milestone" markets (When will X hit Y subs?)
+    - Example: "Will MrBeast's next video outperform his last in 24h?"
+    - Example: "Will IShowSpeed hit 30M subs before Kai Cenat hits 15M?"
+    
+    EVENT MARKETS (High Variance - Specific Occurrences):
+    - "Announcement" markets (Will X announce Y?)
+    - "Appearance" markets (Will guest X appear on show Y?)
+    - "Winner" markets (Who will win competition X?)
+    - Example: "Will Donald Trump appear on Impaulsive before inauguration?"
+    - Example: "Who will win next Sidemen Hide and Seek: KSI or Miniminter?"
+    - Example: "Will KSI announce a fight with Jake Paul in 2025?"
+    
+    PLATFORM MARKETS (High Drama):
+    - "Platform Switch" markets (Will X move to Kick?)
+    - "Ban" markets (Will X get banned for >Y days?)
+    - Example: "Will Asmongold get banned on Twitch for >7 days this year?"
+    
+    PRODUCT MARKETS (Creator Economy):
+    - "Launch" markets (Will X announce new product?)
+    - "Availability" markets (Will X be sold out at Y?)
+    - Example: "Will Prime announce a new flavor in January?"
+    - Example: "Will Feastables be sold out at Walmart on Super Bowl Sunday?"
+    
+    MUSIC MARKETS (Spotify/Charts):
+    - "Chart Position" markets (Will X enter Top Y?)
+    - "Stream Velocity" markets (Will X hit Y streams in Z time?)
+    - Example: "Will KSI's new single enter Spotify Global Top 50?"
+    - Example: "Will The Weeknd get >100M streams on Day 1?"
+
+[ ] 2.4 Historical Data Collection
+    - Track daily stats for monitored creators
+    - Build baseline for "normal" performance
+    - Detect anomalies for market opportunities
+    - Store in time-series format
+
+================================================================================
+PHASE 3: MEDIUM-TERM (Next Month)
+================================================================================
+
+[ ] 3.1 Real-Time Resolution System
+    - WebSocket connection to blockchain
+    - YouTube webhook integration
+    - Auto-post resolution when target hit
+    - Notification system for market creators
+
+[ ] 3.2 Market Quality Scoring
+    - Score markets on:
+      * Verifiability (API access = high)
+      * Timeframe clarity (specific date = high)
+      * Outcome clarity (binary = high)
+      * Interest level (trending topic = high)
+    - Filter low-quality markets automatically
+
+[ ] 3.3 Trending Topic Detection
+    - Monitor Twitter trending
+    - Monitor YouTube trending
+    - Monitor Reddit (r/youtube, r/LivestreamFail)
+    - Auto-generate markets from trends
+
+[ ] 3.4 Creator Watchlist Feature
+    - CLI command: `objectwire watch <channel>`
+    - Get notified on new uploads
+    - Auto-generate velocity markets
+    - Dashboard view of watched creators
+
+================================================================================
+PHASE 4: ADVANCED FEATURES (Next Quarter)
+================================================================================
+
+[ ] 4.1 AI Market Analyst
+    - Fine-tune model on successful markets
+    - Predict market interest/volume
+    - Suggest optimal timeframes
+    - Generate market descriptions
+
+[ ] 4.2 SocialBlade Integration
+    - Pull historical growth data
+    - Compare creator trajectories
+    - Generate "milestone date" predictions
+    - Build creator comparison markets
+
+[ ] 4.3 Event Detection Pipeline
+    - NLP for announcement detection
+    - Boxing/fight announcements
+    - Collaboration announcements  
+    - Drama/controversy detection
+    - Platform deal announcements
+
+[ ] 4.4 Mobile Companion App
+    - Push notifications for tracked markets
+    - Quick bet interface
+    - Creator following
+    - Market creation wizard
+
+================================================================================
+TECHNICAL DEBT & IMPROVEMENTS
+================================================================================
+
+[ ] T.1 Error Handling
+    - Add retry logic to all API calls
+    - Implement circuit breaker pattern
+    - Add detailed error logging
+    - Create error recovery strategies
+
+[ ] T.2 Testing
+    - Unit tests for scraper
+    - Integration tests for APIs
+    - Mock API responses
+    - End-to-end market creation tests
+
+[ ] T.3 Configuration
+    - Move all config to .env
+    - Add config validation
+    - Support multiple environments
+    - Add config reload without restart
+
+[ ] T.4 Documentation
+    - API documentation
+    - Market type examples
+    - Resolution rules guide
+    - Creator onboarding guide
+
+[ ] T.5 Performance
+    - Add caching layer (Redis)
+    - Batch API requests
+    - Async scraping
+    - Connection pooling
+
+================================================================================
+NEW COMMANDS TO ADD
+================================================================================
+
+# Watching & Tracking
+objectwire watch <channel_url>      # Add creator to watchlist
+objectwire unwatch <channel_url>    # Remove from watchlist
+objectwire watchlist                # Show all watched creators
+objectwire stats <channel_url>      # Show creator stats
+
+# Market Generation
+objectwire velocity <video_url>     # Generate velocity market
+objectwire compare <ch1> <ch2>      # Compare two creators (race market)
+objectwire trending                 # Show trending market opportunities
+objectwire templates                # List available market templates
+
+# Resolution
+objectwire resolve <market_id>      # Manually resolve a market
+objectwire history                  # Show posted markets history
+objectwire pending                  # Show markets awaiting resolution
+
+# Article Drafting (NEW)
+objectwire draft <url>              # Draft article from scraped content
+objectwire draft --market <id>      # Draft article about specific market
+objectwire draft --creator <name>   # Draft creator profile article
+objectwire draft --trending         # Draft article on trending topics
+objectwire draft --template <name>  # Use specific article template
+objectwire publish <draft_id>       # Publish draft to configured outlet
+
+================================================================================
+API ENDPOINTS NEEDED
+================================================================================
+
+YouTube Data API v3:
+  - videos.list (views, likes, comments)
+  - channels.list (subscribers, total views)
+  - search.list (find videos)
+
+Twitch API:
+  - users (followers)
+  - streams (live status, viewers)
+  - clips (top clips)
+
+Spotify API:
+  - tracks (stream count)
+  - artists (monthly listeners)
+  - albums (chart position)
+
+Twitter API v2:
+  - users (followers)
+  - tweets (engagement)
+  - trends (trending topics)
+
+================================================================================
+ENVIRONMENT VARIABLES TO ADD
+================================================================================
+
+# YouTube
+YOUTUBE_API_KEY=
+
+# Twitch  
+TWITCH_CLIENT_ID=
+TWITCH_CLIENT_SECRET=
+
+# Twitter
+TWITTER_BEARER_TOKEN=
+
+# Spotify
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+
+# Database
+DATABASE_URL=sqlite:///data/objectwire.db
+
+# Redis (caching)
+REDIS_URL=redis://localhost:6379
+
+================================================================================
+FILE STRUCTURE EXPANSION
+================================================================================
+
+src/objectwire/
+├── __init__.py
+├── __main__.py
+├── cli.py                 # Main CLI (existing)
+├── config.py              # Configuration management
+├── models.py              # Pydantic models
+├── oracles/               # API integrations
+│   ├── __init__.py
+│   ├── youtube.py
+│   ├── twitch.py
+│   ├── twitter.py
+│   ├── spotify.py
+│   └── socialblade.py
+├── scrapers/              # Web scrapers
+│   ├── __init__.py
+│   ├── rss.py
+│   ├── article.py
+│   └── social.py
+├── markets/               # Market generators
+│   ├── __init__.py
+│   ├── velocity.py
+│   ├── milestone.py
+│   ├── event.py
+│   └── templates.py
+├── drafts/                # Article drafting (NEW)
+│   ├── __init__.py
+│   ├── article_generator.py
+│   ├── templates/
+│   │   ├── market_analysis.md
+│   │   ├── creator_profile.md
+│   │   ├── trend_report.md
+│   │   └── velocity_alert.md
+│   └── publisher.py
+├── resolution/            # Resolution engine
+│   ├── __init__.py
+│   ├── engine.py
+│   └── rules.py
+└── utils/
+    ├── __init__.py
+    ├── cache.py
+    └── rate_limit.py
+
+data/
+├── creators.json          # Creator database
+├── markets.json           # Posted markets log
+├── drafts/                # Generated article drafts
+└── objectwire.db          # SQLite database
+
+================================================================================
+PRIORITY MATRIX
+================================================================================
+
+HIGH IMPACT + LOW EFFORT (Do First):
+  ✓ YouTube API integration
+  ✓ Velocity market templates
+  ✓ Creator watchlist
+
+HIGH IMPACT + HIGH EFFORT (Plan Carefully):
+  - Real-time resolution system
+  - Multi-platform support
+  - AI market analyst
+
+LOW IMPACT + LOW EFFORT (Quick Wins):
+  - Better error messages
+  - Config file support
+  - History command
+
+LOW IMPACT + HIGH EFFORT (Deprioritize):
+  - Mobile app
+  - Custom dashboard
+  - Advanced analytics
+
+================================================================================
+SUCCESS METRICS
+================================================================================
+
+1. Markets Created Per Day: Target 10+
+2. Resolution Accuracy: Target 99%+
+3. API Uptime: Target 99.9%
+4. Avg Market Generation Time: Target <5 seconds
+5. Creator Coverage: Target 100+ tracked creators
+
+================================================================================
+NOTES
+================================================================================
+
+- Always prioritize verifiable markets over speculative ones
+- Never create markets on private/unverifiable data
+- Focus on velocity markets for engagement
+- YouTube is primary platform, others are secondary
+- Keep CLI simple, power users can use --json for scripting
+
+================================================================================
+CRITICAL: VIEWS vs EARNINGS
+================================================================================
+
+The most important distinction in social prediction markets:
+
+❌ EARNINGS/REVENUE = NOT BETTABLE
+   - YouTube revenue (RPM/CPM) is PRIVATE data
+   - Only visible in creator's YouTube Studio dashboard
+   - SocialBlade estimates show ranges like "$10K - $150K"
+   - That margin of error is TOO WIDE to settle a bet
+   - No oracle can verify this data
+   
+   EXCEPTION: Public company financials (FaZe Clan stock)
+
+✅ VIEWS/METRICS = BETTABLE (Gold Standard)
+   - View counts are PUBLIC (everyone can see)
+   - Verifiable via YouTube Data API v3
+   - Hard to fake at scale (YouTube audits)
+   - Real-time updates (changes within minutes)
+   - Perfect for velocity markets
+
+ALWAYS ASK: "Can an API verify this?" If NO, don't create the market.
+
+================================================================================
+CREATOR-SPECIFIC MARKET IDEAS
+================================================================================
+
+MRBEAST:
+  - "Will next video outperform last in 24h views?"
+  - "Over/Under 100M views first week?"
+  - "Will Feastables launch new product in Q1?"
+
+SIDEMEN:
+  - "Will next Tinder video feature >10M sub guest?"
+  - "Who wins next Hide and Seek: KSI or Miniminter?"
+  - "Over/Under 15M views on next Sidemen Sunday?"
+
+LOGAN PAUL:
+  - "Will [Celebrity] appear on Impaulsive?"
+  - "Will Logan announce a fight in 2025?"
+  - "Prime new flavor launch date?"
+
+ISHOWSPEED / KAI CENAT:
+  - "Who hits subscriber milestone first?"
+  - "Who gets more concurrent viewers next stream?"
+  - "Will Speed get banned again this month?"
+
+KSI:
+  - "Will new single enter Spotify Global Top 50?"
+  - "Will KSI vs Jake Paul be announced in 2025?"
+  - "Over/Under streams on next music release?"
+
+================================================================================

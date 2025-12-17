@@ -246,6 +246,34 @@ def paste_from_clipboard() -> Optional[str]:
 # Data Models
 # ─────────────────────────────────────────────────────────────
 
+# Social Media Market Categories
+SOCIAL_CATEGORIES = {
+    "metric": "Metric Market",      # Views, subs, streams (verifiable)
+    "event": "Event Market",        # Specific occurrences
+    "platform": "Platform Wars",    # Twitch/Kick/YouTube moves
+    "product": "Creator Product",   # Prime, Feastables, merch
+    "music": "Music & Streaming",   # Spotify, charts
+}
+
+# Market types for social events
+MARKET_TYPES = {
+    "binary": ["Yes", "No"],
+    "three_choice": ["Yes", "No Change", "No"],
+    "over_under": ["Over", "Under"],
+    "velocity": ["Hits Target", "Misses Target"],
+    "multi_outcome": None,  # Custom outcomes
+}
+
+# Resolution oracle types
+ORACLE_TYPES = {
+    "youtube_api": "YouTube Data API (views, subs)",
+    "twitch_api": "Twitch API (followers, streams)",
+    "spotify_api": "Spotify API (streams, charts)",
+    "social_blade": "SocialBlade (public stats)",
+    "manual": "Manual verification",
+}
+
+
 class PredictionEvent(BaseModel):
     """Prediction market event model matching blockchain API format."""
     # Required fields
@@ -261,14 +289,17 @@ class PredictionEvent(BaseModel):
     
     # Optional fields
     source: Optional[str] = None  # ID from scraper/source
-    category: Optional[str] = None  # "crypto", "sports", "politics"
+    category: Optional[str] = None  # "crypto", "sports", "social"
     tags: Optional[List[str]] = None
     market_type: str = "three_choice"
-    initial_probabilities: Optional[List[float]] = None  # Defaults to equal split if null
+    initial_probabilities: Optional[List[float]] = None
     image_url: Optional[str] = None
     
     # Resolution rules (optional)
     resolution_rules: Optional[Dict[str, Any]] = None
+    
+    # Social media specific fields
+    social_metric: Optional[Dict[str, Any]] = None  # For velocity/metric markets
 
 
 # ─────────────────────────────────────────────────────────────
@@ -331,26 +362,60 @@ def analyze(scraped: dict) -> PredictionEvent:
     # Extract domain for source (optional ID)
     source_domain = urlparse(scraped['url']).netloc
     
+    # Detect if this is social media content
+    social_keywords = ['youtube', 'twitch', 'tiktok', 'instagram', 'twitter', 'x.com', 
+                       'mrbeast', 'sidemen', 'ksi', 'logan paul', 'speed', 'kai cenat',
+                       'views', 'subscribers', 'followers', 'stream', 'viral']
+    content_lower = (scraped['title'] + ' ' + scraped['content'][:500]).lower()
+    is_social = any(kw in content_lower for kw in social_keywords)
+    
     # Use OpenAI if available
     if openai and OPENAI_API_KEY:
         try:
-            resp = openai.ChatCompletion.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": """Extract a prediction market question from this article. Return JSON with:
+            # Use specialized prompt for social media content
+            if is_social:
+                system_prompt = """You are a social media prediction market expert. Extract a BETTABLE market from this article.
+
+CRITICAL RULES:
+1. ONLY bet on PUBLIC, VERIFIABLE data (views, subscribers, followers, chart positions)
+2. NEVER bet on private data (revenue, earnings, CPM - these are NOT public)
+3. Prefer "velocity" markets (e.g., "Will X hit Y views in 24 hours?")
+
+Return JSON with:
+- title: Clear prediction question with specific metric and timeframe
+- description: Context explaining the bet
+- category: One of "metric", "event", "platform", "product", "music"
+- market_type: "velocity" (speed bets), "over_under" (threshold), "binary" (yes/no), "event" (occurrence)
+- outcomes: Array of outcomes (e.g., ["Hits Target", "Misses Target"] or ["Yes", "No"])
+- tags: Relevant tags including creator names, platforms
+- resolution_date: When bet resolves (ISO8601)
+- freeze_date: When betting closes (ISO8601, usually before resolution)
+- social_metric: Object with {"platform": "youtube/twitch/spotify", "metric": "views/subs/streams", "target": number, "timeframe_hours": number, "oracle": "youtube_api/twitch_api/spotify_api"}
+
+EXAMPLES:
+{"title": "Will MrBeast's next video hit 50M views in 24 hours?", "market_type": "velocity", "outcomes": ["Hits 50M", "Under 50M"], "social_metric": {"platform": "youtube", "metric": "views", "target": 50000000, "timeframe_hours": 24, "oracle": "youtube_api"}}
+{"title": "Will KSI reach 25M subscribers before Jake Paul?", "market_type": "binary", "outcomes": ["KSI First", "Jake First"]}
+{"title": "Will Kai Cenat break his own Twitch viewer record in 2025?", "market_type": "binary", "outcomes": ["Yes", "No"]}"""
+            else:
+                system_prompt = """Extract a prediction market question from this article. Return JSON with:
 - title: A clear yes/no prediction question based on the article
 - description: Brief description of the prediction context
-- category: Category like "crypto", "politics", "sports", "technology", etc.
+- category: Category like "crypto", "politics", "sports", "technology", "social"
 - tags: Array of relevant tags
 - resolution_date: ISO8601 date when this prediction can be resolved (if determinable, otherwise null)
 - freeze_date: ISO8601 date when betting should freeze (if determinable, otherwise null)
 
 Example response:
-{"title": "Will Bitcoin reach $100k by end of 2025?", "description": "Based on analyst predictions...", "category": "crypto", "tags": ["bitcoin", "price"], "resolution_date": "2025-12-31T23:59:59Z", "freeze_date": null}"""},
+{"title": "Will Bitcoin reach $100k by end of 2025?", "description": "Based on analyst predictions...", "category": "crypto", "tags": ["bitcoin", "price"], "resolution_date": "2025-12-31T23:59:59Z", "freeze_date": null}"""
+            
+            resp = openai.ChatCompletion.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Title: {scraped['title']}\n\nContent: {scraped['content'][:2000]}"}
                 ],
                 temperature=0.3,
-                max_tokens=400,
+                max_tokens=600,
             )
             text = resp.choices[0].message.content
             # Parse JSON from response
@@ -359,37 +424,77 @@ Example response:
             if start >= 0 and end > start:
                 data = json.loads(text[start:end])
                 debug_log("OpenAI response parsed", data)
+                
+                # Get outcomes from AI or use defaults based on market type
+                market_type = data.get('market_type', 'binary')
+                outcomes = data.get('outcomes')
+                if not outcomes:
+                    outcomes = MARKET_TYPES.get(market_type, ["Yes", "No"])
+                
+                # Calculate probabilities based on outcome count
+                num_outcomes = len(outcomes)
+                if num_outcomes == 2:
+                    initial_probs = [0.5, 0.5]
+                elif num_outcomes == 3:
+                    initial_probs = [0.49, 0.02, 0.49]
+                else:
+                    initial_probs = [1.0 / num_outcomes] * num_outcomes
+                
+                # Build resolution rules for social metrics
+                resolution_rules = None
+                social_metric = data.get('social_metric')
+                if social_metric:
+                    resolution_rules = {
+                        "oracle_type": social_metric.get('oracle', 'manual'),
+                        "metric": social_metric,
+                        "verification": "API-based automatic resolution" if social_metric.get('oracle') else "Manual verification"
+                    }
+                
                 event = PredictionEvent(
-                    source=market_id,  # Use market_id as optional source ID
+                    source=market_id,
                     title=data.get('title', f"Will {scraped['title'][:60]} happen?"),
                     description=data.get('description', scraped['content'][:200]),
-                    category=data.get('category'),
+                    category=data.get('category', 'social' if is_social else None),
                     tags=data.get('tags'),
-                    market_type="three_choice",
-                    outcomes=["Yes", "No Change", "No"],
-                    initial_probabilities=[0.49, 0.02, 0.49],
+                    market_type=market_type,
+                    outcomes=outcomes,
+                    initial_probabilities=initial_probs,
                     source_url=scraped['url'],
                     image_url=None,
                     published_date=published_date,
                     freeze_date=data.get('freeze_date'),
-                    resolution_date=data.get('resolution_date')
+                    resolution_date=data.get('resolution_date'),
+                    resolution_rules=resolution_rules,
+                    social_metric=social_metric
                 )
                 debug_log("Created PredictionEvent (OpenAI)", event.model_dump())
                 return event
         except Exception as e:
             debug_log(f"OpenAI failed: {e}, falling back to simple extraction")
     
-    # Fallback: Simple extraction
+    # Fallback: Simple extraction with social detection
     debug_log("Using fallback extraction (no OpenAI)")
+    
+    # Detect social platform for fallback
+    fallback_category = None
+    if is_social:
+        fallback_category = "social"
+        if 'youtube' in content_lower:
+            fallback_category = "metric"
+        elif 'twitch' in content_lower or 'kick' in content_lower:
+            fallback_category = "platform"
+        elif 'spotify' in content_lower:
+            fallback_category = "music"
+    
     event = PredictionEvent(
-        source=market_id,  # Use market_id as optional source ID
+        source=market_id,
         title=f"Will '{scraped['title'][:50]}' predictions come true?",
         description=f"Based on: {scraped['title']}",
-        category=None,
+        category=fallback_category,
         tags=None,
-        market_type="three_choice",
-        outcomes=["Yes", "No Change", "No"],
-        initial_probabilities=[0.49, 0.02, 0.49],
+        market_type="binary",
+        outcomes=["Yes", "No"],
+        initial_probabilities=[0.5, 0.5],
         source_url=scraped['url'],
         image_url=None,
         published_date=published_date,
@@ -433,6 +538,8 @@ def post_to_blockchain(event: PredictionEvent) -> Optional[dict]:
         payload["dates"]["resolution"] = event.resolution_date
     if event.resolution_rules:
         payload["resolution_rules"] = event.resolution_rules
+    if event.social_metric:
+        payload["social_metric"] = event.social_metric
     
     debug_log("Payload being sent", payload)
     
@@ -486,6 +593,8 @@ def build_market_payload(event: PredictionEvent) -> dict:
         payload["dates"]["resolution"] = event.resolution_date
     if event.resolution_rules:
         payload["resolution_rules"] = event.resolution_rules
+    if event.social_metric:
+        payload["social_metric"] = event.social_metric
     
     return payload
 
@@ -498,17 +607,41 @@ def display_market_panel(event: PredictionEvent, title: str = "🎯 Market Event
     tags = ", ".join(event.tags) if event.tags else "None"
     probs = event.initial_probabilities or []
     
-    console.print(Panel(
+    # Format category with emoji for social types
+    category_display = category
+    if category in SOCIAL_CATEGORIES:
+        category_icons = {"metric": "📊", "event": "🎬", "platform": "⚔️", "product": "🛍️", "music": "🎵"}
+        category_display = f"{category_icons.get(category, '')} {SOCIAL_CATEGORIES[category]}"
+    
+    # Build base content
+    content = (
         f"[bold cyan]{event.title}[/]\n\n"
         f"{event.description}\n\n"
         f"[dim]Source ID:[/] {event.source or 'Auto-generated'}\n"
-        f"[dim]Category:[/] {category}\n"
+        f"[dim]Category:[/] {category_display}\n"
         f"[dim]Tags:[/] {tags}\n"
+        f"[dim]Market Type:[/] {event.market_type}\n"
         f"[dim]Outcomes:[/] {' | '.join(event.outcomes)}\n"
         f"[dim]Probabilities:[/] {probs}\n"
         f"[dim]Published:[/] {event.published_date}\n"
         f"[dim]Freeze:[/] {freeze}\n"
-        f"[dim]Resolution:[/] {resolution}",
+        f"[dim]Resolution:[/] {resolution}"
+    )
+    
+    # Add social metric details if present
+    if event.social_metric:
+        sm = event.social_metric
+        content += f"\n\n[bold yellow]📈 Social Metric[/]\n"
+        content += f"[dim]Platform:[/] {sm.get('platform', 'N/A').upper()}\n"
+        content += f"[dim]Metric:[/] {sm.get('metric', 'N/A')}\n"
+        if sm.get('target'):
+            content += f"[dim]Target:[/] {sm.get('target'):,}\n"
+        if sm.get('timeframe_hours'):
+            content += f"[dim]Timeframe:[/] {sm.get('timeframe_hours')} hours\n"
+        content += f"[dim]Oracle:[/] {ORACLE_TYPES.get(sm.get('oracle'), sm.get('oracle', 'manual'))}"
+    
+    console.print(Panel(
+        content,
         title=title,
         border_style="green"
     ))
