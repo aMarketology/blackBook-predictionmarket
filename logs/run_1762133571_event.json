@@ -1,0 +1,13 @@
+{
+  "title": "Will the events described in 'Sending Crypto Globally...' occur as predicted?",
+  "description": "Based on the article titled 'Sending Crypto Globally with Zelle ?? Yes | Object Wire', will the main predictions or events described come to fruition?",
+  "category": "tech",
+  "options": [
+    "Yes, events will occur",
+    "No, events will not occur",
+    "Partially accurate"
+  ],
+  "confidence": 0.7,
+  "source_url": "https://www.objectwire.org/zelle-payment-processor-goes-global-to-allow-crypto-stablecoins-for-international-transactions",
+  "resolution_date": "2025-12-31T23:59:00-05:00"
+}

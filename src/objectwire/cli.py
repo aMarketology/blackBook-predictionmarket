@@ -308,21 +308,56 @@ class PredictionEvent(BaseModel):
 
 def scrape_url(url: str) -> Optional[dict]:
     """Scrape content from URL with retry logic."""
+    console.print(f"[cyan]🔍 DEBUG: Starting scrape for URL: {url}[/cyan]")
+    
+    # Create a session for better connection handling
+    session = requests.Session()
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.109 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Cache-Control": "max-age=0",
+        "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
     }
+    
+    console.print(f"[cyan]🔍 DEBUG: Sending request with {len(headers)} headers[/cyan]")
     
     for attempt in range(3):
         try:
-            r = requests.get(url, headers=headers, timeout=20)
+            console.print(f"[cyan]🔍 DEBUG: Attempt {attempt + 1}/3[/cyan]")
+            r = session.get(url, headers=headers, timeout=30, allow_redirects=True)
+            console.print(f"[cyan]🔍 DEBUG: Response status: {r.status_code}[/cyan]")
+            console.print(f"[cyan]🔍 DEBUG: Response headers: {dict(r.headers)}[/cyan]")
+            console.print(f"[cyan]🔍 DEBUG: Content length: {len(r.content)} bytes[/cyan]")
             r.raise_for_status()
+            console.print(f"[green]✓ DEBUG: Request successful![/green]")
             break
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.HTTPError as e:
+            console.print(f"[red]❌ DEBUG: HTTP Error on attempt {attempt + 1}: {e}[/red]")
+            console.print(f"[red]   Status code: {r.status_code}[/red]")
+            console.print(f"[red]   Response text: {r.text[:500]}[/red]")
             if attempt == 2:
+                debug_log(f"Failed to scrape after 3 attempts: {e}")
                 return None
-            time.sleep(1)
+            time.sleep(2 ** attempt)
+        except requests.exceptions.RequestException as e:
+            console.print(f"[red]❌ DEBUG: Request error on attempt {attempt + 1}: {e}[/red]")
+            if attempt == 2:
+                debug_log(f"Failed to scrape after 3 attempts: {e}")
+                return None
+            time.sleep(2 ** attempt)
     
+    console.print(f"[cyan]🔍 DEBUG: Parsing HTML with BeautifulSoup[/cyan]")
     soup = BeautifulSoup(r.content, "html.parser")
     
     # Remove noise
@@ -330,16 +365,22 @@ def scrape_url(url: str) -> Optional[dict]:
         tag.decompose()
     
     title = soup.title.get_text(strip=True) if soup.title else "Untitled"
+    console.print(f"[cyan]🔍 DEBUG: Title: {title}[/cyan]")
     
     # Get main content
     main = soup.find('article') or soup.find('main') or soup.body
+    console.print(f"[cyan]🔍 DEBUG: Found main element: {type(main).__name__ if main else 'None'}[/cyan]")
+    
     content = main.get_text("\n", strip=True)[:5000] if main else ""
+    console.print(f"[cyan]🔍 DEBUG: Content length: {len(content)} chars[/cyan]")
     
     if len(content) < 100:
+        console.print(f"[red]❌ DEBUG: Content too short ({len(content)} chars), returning None[/red]")
         debug_log(f"Content too short ({len(content)} chars), returning None")
         return None
     
     result = {"title": title, "content": content, "url": url, "domain": urlparse(url).netloc}
+    console.print(f"[green]✓ DEBUG: Scrape complete! Domain: {result['domain']}[/green]")
     debug_log(f"Scraped URL successfully", {
         "title": title,
         "content_length": len(content),
@@ -548,6 +589,29 @@ def post_to_blockchain(event: PredictionEvent) -> Optional[dict]:
         resp = requests.post(
             f"{BLOCKCHAIN_URL}/markets",
             json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=30
+        )
+        debug_log(f"Response status: {resp.status_code}")
+        resp.raise_for_status()
+        result = resp.json()
+        debug_log("Blockchain response", result)
+        return result
+    
+    except requests.exceptions.RequestException as e:
+        debug_log(f"Blockchain error: {e}")
+        return None
+
+
+def post_to_blockchain_dict(event_dict: dict) -> Optional[dict]:
+    """Post event dictionary directly to blockchain API (for AI-extracted events)."""
+    debug_log(f"Posting to blockchain: {BLOCKCHAIN_URL}/markets")
+    debug_log("Payload being sent", event_dict)
+    
+    try:
+        resp = requests.post(
+            f"{BLOCKCHAIN_URL}/markets",
+            json=event_dict,
             headers={"Content-Type": "application/json"},
             timeout=30
         )
@@ -1152,68 +1216,112 @@ def main(ctx, dev: bool, debug: bool):
 
 @main.command()
 @click.argument("url")
-@click.option("--post", is_flag=True, help="Post event to blockchain")
+@click.option("--post", is_flag=True, help="Post event to blockchain immediately")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 @click.option("--xml", "as_xml", is_flag=True, help="Output as XML")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt when posting")
-def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool):
-    """Scrape a URL and generate prediction event."""
-    with console.status("[green]Scraping URL..."):
+@click.option("--no-ai", is_flag=True, help="Disable AI extraction (use fallback)")
+def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool, no_ai: bool):
+    """Scrape a URL and generate blockchain-ready prediction event with AI.
+    
+    Examples:
+        objectwire scrape https://techcrunch.com/article
+        objectwire scrape https://coindesk.com/bitcoin --post
+        objectwire scrape https://example.com --json
+    """
+    
+    # Step 1: Scrape the URL
+    with console.status("[cyan]🌐 Scraping URL..."):
         data = scrape_url(url)
     
     if not data:
         console.print("[red]❌ Failed to scrape URL[/]")
         sys.exit(1)
     
-    event = analyze(data)
-    output = event.model_dump()
+    console.print(f"[green]✓[/] Scraped: [bold]{data['title'][:60]}...[/]")
     
-    # Build payload in new market format
-    payload = build_market_payload(event)
+    # Step 2: Extract event with AI (unless --no-ai flag)
+    if not no_ai:
+        try:
+            console.print("[cyan]🤖 Loading AI engine...[/]")
+            from .llama_engine import create_nuextract_engine, BlockchainEvent
+            
+            engine = create_nuextract_engine()
+            console.print("[green]✓[/] AI engine ready")
+            
+            with console.status("[cyan]🔮 Analyzing with AI (10-15 seconds)..."):
+                blockchain_event = engine.analyze_article_blockchain(
+                    title=data['title'],
+                    content=data['content'],
+                    url=url
+                )
+            
+            console.print("[green]✓[/] AI extraction complete!")
+            
+            # Convert to dict for display
+            event_dict = blockchain_event.model_dump()
+            
+        except Exception as e:
+            console.print(f"[yellow]⚠ AI extraction failed: {e}[/]")
+            console.print("[yellow]Falling back to basic extraction...[/]")
+            event = analyze(data)
+            event_dict = build_market_payload(event)
+    else:
+        # Use legacy extraction without AI
+        event = analyze(data)
+        event_dict = build_market_payload(event)
     
-    # If posting explicitly with --post flag, show preview first
+    # Step 3: Display results
+    console.print("\n[bold cyan]═══ BLOCKCHAIN EVENT ═══[/]")
+    
+    # Display in chosen format
+    if as_json:
+        console.print_json(data=event_dict)
+    elif as_xml:
+        print_xml(event_dict, root_name="blockchain_event")
+    else:
+        # Pretty display
+        console.print(f"\n[bold]📌 Title:[/] {event_dict.get('title', 'N/A')}")
+        console.print(f"[bold]📝 Description:[/] {event_dict.get('description', 'N/A')[:150]}...")
+        console.print(f"[bold]🏷️  Category:[/] {event_dict.get('category', 'N/A')}")
+        
+        tags = event_dict.get('tags', [])
+        if tags:
+            console.print(f"[bold]🔖 Tags:[/] {', '.join(tags)}")
+        
+        probs = event_dict.get('initial_probabilities')
+        if probs:
+            console.print(f"[bold]🎲 Odds:[/] Yes={probs[0]:.1%}, No Change={probs[1]:.1%}, No={probs[2]:.1%}")
+        
+        dates = event_dict.get('dates', {})
+        if dates:
+            console.print(f"[bold]📅 Resolution:[/] {dates.get('resolution', 'Not set')}")
+        
+        rules = event_dict.get('resolution_rules', {})
+        if rules:
+            console.print(f"[bold]🔮 Oracle:[/] {rules.get('data_source', 'N/A')}")
+        
+        console.print()
+    
+    # Step 4: Post to blockchain (if requested)
     if post:
-        console.print("\n[bold cyan]═══ JSON Preview ═══[/]")
-        console.print_json(data=payload)
-        
-        console.print("\n[bold cyan]═══ XML Preview ═══[/]")
-        print_xml(payload, root_name="blockchain_payload")
-        
-        # Confirm before posting (unless --yes flag)
         if not yes:
-            if not click.confirm("\nPost to blockchain?", default=False):
+            if not click.confirm("\n[bold]Post to blockchain?[/]", default=True):
                 console.print("[dim]Cancelled.[/]")
-                sys.exit(0)
+                return
         
-        with console.status("[green]Posting to blockchain..."):
-            result = post_to_blockchain(event)
+        with console.status("[green]📤 Posting to blockchain..."):
+            result = post_to_blockchain_dict(event_dict)
+        
         if result:
-            event_id = result.get('id') or result.get('market_id') or result.get('event_id') if isinstance(result, dict) else result
-            console.print(f"\n[green]✓ Posted! Event ID:[/] [bold]{event_id}[/]")
+            event_id = result.get('id') or result.get('market_id') or result.get('event_id')
+            console.print(f"\n[green]✅ Posted to blockchain![/]")
+            if event_id:
+                console.print(f"[bold]Market ID:[/] {event_id}")
         else:
             console.print("\n[red]❌ Failed to post to blockchain[/]")
-    
-    # Output format selection
-    elif as_xml:
-        print_xml(output, root_name="market_event")
-    elif as_json:
-        console.print_json(data=output)
     else:
-        # Show event and auto-post
-        display_market_panel(event)
-        
-        # Auto-post to blockchain
-        with console.status("[green]Posting to blockchain..."):
-            result = post_to_blockchain(event)
-        
-        if result:
-            console.print(f"[green]✓ Posted to blockchain![/]")
-            if isinstance(result, dict):
-                event_id = result.get('id') or result.get('market_id') or result.get('event_id')
-                if event_id:
-                    console.print(f"[dim]Market ID: {event_id}[/]")
-        else:
-            console.print("[yellow]⚠ Could not post to blockchain (service may be offline)[/]")
+        console.print("[dim]💡 Tip: Add --post to publish to blockchain[/]")
 
 
 @main.command()
@@ -1385,6 +1493,206 @@ def test():
     
     console.print(table)
     console.print(f"\n[dim]Blockchain URL: {BLOCKCHAIN_URL}[/]")
+
+
+@main.command()
+def chat():
+    """Interactive AI assistant - chat with ObjectWire CLI."""
+    from .llama_engine import create_nuextract_engine, LlamaConfig
+    from pathlib import Path
+    
+    console.print()
+    console.print(Panel.fit(
+        "[bold cyan]🤖 ObjectWire AI Assistant[/]\n\n"
+        "[dim]Ask me about commands, scrape URLs, or get help![/]\n"
+        "[dim]Type 'exit' or 'quit' to leave[/]",
+        border_style="cyan",
+        title="AI Chat Mode"
+    ))
+    console.print()
+    
+    # Initialize NuExtract engine
+    try:
+        console.print("[dim]Loading offline AI model...[/]")
+        engine = create_nuextract_engine()
+        console.print("[green]✓ AI ready![/]\n")
+    except Exception as e:
+        console.print(f"[red]❌ Failed to load AI: {e}[/]")
+        console.print("[yellow]Continuing with limited functionality...[/]\n")
+        engine = None
+    
+    # Create session with history
+    session = PromptSession(
+        history=FileHistory(os.path.expanduser("~/.objectwire_chat_history"))
+    )
+    
+    # System context about ObjectWire
+    cli_context = """ObjectWire CLI is a tool for scraping URLs and creating prediction markets. 
+
+Available commands:
+- objectwire scrape <url> : Scrape a URL and generate a prediction event
+- objectwire rss <feed> : Parse an RSS feed
+- objectwire post <url> : Scrape and immediately post to blockchain
+- objectwire test : Test blockchain connectivity
+- objectwire status : Check system status
+- objectwire chat : Start this AI assistant (current mode)
+
+The tool can scrape news articles, analyze content with AI, and automatically create prediction market events that are posted to a blockchain API."""
+    
+    while True:
+        try:
+            user_input = session.prompt("\n[you]> ", completer=None).strip()
+            
+            if not user_input:
+                continue
+            
+            # Check for exit commands
+            if user_input.lower() in ("exit", "quit", "q", "bye"):
+                console.print("\n[cyan]👋 Goodbye![/]")
+                break
+            
+            # Check for help request
+            if user_input.lower() in ("help", "commands", "?"):
+                console.print("\n[bold cyan]ObjectWire Commands:[/]")
+                console.print("  [orange3]scrape <url>[/]  - Scrape a URL and analyze")
+                console.print("  [orange3]rss <feed>[/]    - Parse RSS feed")
+                console.print("  [orange3]post <url>[/]    - Scrape and post to blockchain")
+                console.print("  [orange3]test[/]          - Test blockchain connectivity")
+                console.print("  [orange3]status[/]        - Check system status")
+                console.print("  [orange3]chat[/]          - This AI assistant mode")
+                console.print("\n[dim]In chat mode, you can:[/]")
+                console.print("  • Ask questions about commands")
+                console.print("  • Paste URLs to analyze")
+                console.print("  • Get help with the tool")
+                continue
+            
+            # Check if it's a URL - process it
+            if user_input.startswith(("http://", "https://")):
+                url = user_input
+                console.print(f"\n[dim]🔍 Analyzing: {url}[/]")
+                
+                with console.status("[green]Scraping..."):
+                    scraped = scrape_url(url)
+                
+                if not scraped:
+                    console.print("[red]❌ Failed to scrape URL[/]")
+                    continue
+                
+                if engine:
+                    with console.status("[green]Analyzing with AI..."):
+                        try:
+                            event = engine.analyze_article(
+                                scraped['title'],
+                                scraped['content'],
+                                url
+                            )
+                            
+                            console.print("\n[bold green]✓ Analysis Complete![/]\n")
+                            console.print(f"[bold]Title:[/] {event.title}")
+                            console.print(f"[bold]Category:[/] {event.category}")
+                            console.print(f"[bold]Tags:[/] {', '.join(event.tags)}")
+                            console.print(f"[bold]Confidence:[/] {event.confidence:.1%}")
+                            console.print(f"[bold]Options:[/] {', '.join(event.options)}")
+                            console.print(f"\n[dim]Description:[/] {event.description[:150]}...")
+                            
+                            # Ask if user wants to post
+                            post_confirm = session.prompt("\n[yellow]Post to blockchain? (y/n):[/] ").strip().lower()
+                            if post_confirm in ("y", "yes"):
+                                with console.status("[green]Posting..."):
+                                    # Convert to PredictionEvent format
+                                    pred_event = PredictionEvent(
+                                        title=event.title,
+                                        description=event.description,
+                                        outcomes=event.options,
+                                        source_url=event.source_url,
+                                        category=event.category,
+                                        tags=event.tags,
+                                        published_date=datetime.now(timezone.utc).isoformat(),
+                                        resolution_date=event.resolution_date
+                                    )
+                                    result = post_to_blockchain(pred_event)
+                                
+                                if result:
+                                    console.print("[green]✓ Posted to blockchain![/]")
+                                else:
+                                    console.print("[red]❌ Failed to post[/]")
+                            else:
+                                console.print("[dim]Skipped posting[/]")
+                        
+                        except Exception as e:
+                            console.print(f"[red]❌ AI analysis failed: {e}[/]")
+                else:
+                    console.print("[yellow]⚠ No AI engine loaded - showing basic analysis[/]")
+                    console.print(f"Title: {scraped['title']}")
+                    console.print(f"Domain: {scraped['domain']}")
+                    console.print(f"Content length: {len(scraped['content'])} chars")
+                
+                continue
+            
+            # General conversational response
+            console.print("\n[dim cyan]🤖 AI:[/] ", end="")
+            
+            if engine:
+                # Use AI to respond
+                console.print("[dim](Thinking...)[/]", end="\r")
+                
+                # Build a simple Q&A prompt
+                prompt = f"""<|input|>
+### Template:
+{{
+  "response": "Helpful response to user question",
+  "suggested_command": "objectwire command if applicable, or null",
+  "helpful": true
+}}
+
+### Text:
+Context: {cli_context}
+
+User Question: {user_input}
+
+Provide a helpful response about ObjectWire CLI. If the user is asking how to do something, suggest the appropriate command.
+
+<|output|>
+"""
+                
+                try:
+                    response = engine.extract(prompt)
+                    
+                    # Try to parse JSON from response
+                    import re
+                    json_match = re.search(r'\{.*\}', response, re.DOTALL)
+                    if json_match:
+                        data = json.loads(json_match.group())
+                        console.print(f"\r{data.get('response', response[:200])}")
+                        
+                        if data.get('suggested_command'):
+                            console.print(f"\n[dim]💡 Try:[/] [orange3]{data['suggested_command']}[/]")
+                    else:
+                        # Fallback to raw response
+                        console.print(f"\r{response[:300]}")
+                
+                except Exception as e:
+                    # Fallback to simple response
+                    console.print(f"\r[dim]I'm having trouble understanding. Type 'help' to see available commands.[/]")
+            else:
+                # No AI - provide basic help
+                if "scrape" in user_input.lower():
+                    console.print("To scrape a URL, use: [orange3]objectwire scrape <url>[/]")
+                elif "rss" in user_input.lower() or "feed" in user_input.lower():
+                    console.print("To parse an RSS feed, use: [orange3]objectwire rss <feed_url>[/]")
+                elif "post" in user_input.lower() or "blockchain" in user_input.lower():
+                    console.print("To post to blockchain, use: [orange3]objectwire post <url>[/]")
+                elif "test" in user_input.lower():
+                    console.print("To test connectivity, use: [orange3]objectwire test[/]")
+                else:
+                    console.print("Type 'help' to see available commands, or paste a URL to analyze it.")
+        
+        except KeyboardInterrupt:
+            console.print("\n[dim](Type 'exit' to quit)[/]")
+            continue
+        except EOFError:
+            console.print("\n[cyan]👋 Goodbye![/]")
+            break
 
 
 if __name__ == "__main__":

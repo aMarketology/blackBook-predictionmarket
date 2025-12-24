@@ -1,0 +1,13 @@
+{
+  "title": "Will the events described in 'Tesla Can Now...' occur as predicted?",
+  "description": "Based on the article titled 'Tesla Can Now Test Its Autonomous Vehicle Technology On Public Streets In Nevada', will the main predictions or events described come to fruition?",
+  "category": "tech",
+  "options": [
+    "Yes, events will occur",
+    "No, events will not occur",
+    "Partially accurate"
+  ],
+  "confidence": 0.7,
+  "source_url": "https://www.objectwire.org/tesla-can-now-test-its-autonomous-vehicle-technology-on-public-streets-in-nevada",
+  "resolution_date": "2025-12-31T23:59:00-05:00"
+}

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "objectwire"
 version = "0.1.0"
 description = "AI-powered RSS/URL scraper agent for blockchain prediction markets"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 dependencies = [
     "click>=8.1.0",
     "rich>=13.0.0",
