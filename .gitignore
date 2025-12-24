@@ -3,7 +3,7 @@
 *.env
 !.env.example
 
-/Users/thelegendofzjui/Documents/GitHub/url_scraper_agent.py/models/nuextract-smol-1.5-q4_k_m.gguf
+nuextract-smol-1.5-q4_k_m.gguf
 # Python
 __pycache__/
 *.py[cod]
