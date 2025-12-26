@@ -48,7 +48,7 @@ class PredictionEvent(BaseModel):
 class LlamaConfig:
     """Configuration for llama.cpp"""
     model_path: str
-    llama_cli_path: str = "llama-cli"
+    llama_cli_path: str = "llama-completion"  # Use completion tool for non-interactive use
     context_size: int = 2048  # Reduced from 4096 for faster processing
     threads: int = 8
     temperature: float = 0.1  # Low temp for structured extraction
@@ -120,7 +120,7 @@ class NuExtractEngine:
     
     def extract(self, prompt: str, stop_tokens: List[str] = None) -> str:
         """
-        Run llama.cpp inference with NuExtract
+        Run llama.cpp inference with NuExtract using llama-completion
         
         Args:
             prompt: Formatted NuExtract prompt
@@ -132,7 +132,7 @@ class NuExtractEngine:
         if stop_tokens is None:
             stop_tokens = ["<|end|>", "\n\n\n", "<|input|>"]
         
-        # Build command - single-turn, non-interactive mode
+        # Build command - llama-completion is designed for batch/non-interactive use
         cmd = [
             self.config.llama_cli_path,
             "-m", self.config.model_path,
@@ -143,9 +143,6 @@ class NuExtractEngine:
             "--temp", str(self.config.temperature),
             "--top-p", str(self.config.top_p),
             "-ngl", str(self.config.gpu_layers),
-            "--no-display-prompt",
-            "--no-conversation",  # Disable conversation mode
-            "-st",  # Single turn mode - exit after generation
         ]
         
         # Add stop tokens
@@ -161,8 +158,7 @@ class NuExtractEngine:
             )
             
             if result.returncode != 0:
-                print(f"⚠️  llama-cli stderr: {result.stderr[:500]}")
-                raise RuntimeError(f"llama.cpp error: {result.stderr}")
+                print(f"⚠️  llama-completion stderr: {result.stderr[:500]}")
             
             output = result.stdout.strip()
             
@@ -226,15 +222,12 @@ class NuExtractEngine:
         
         # Extract data with shorter timeout
         output = self.extract(prompt)
-        print(f"\n🔍 DEBUG - Raw AI output:\n{output}\n")
         
         # Parse JSON from output
         json_match = re.search(r'\{.*\}', output, re.DOTALL)
         if not json_match:
-            print(f"❌ No JSON pattern found in output")
             raise ValueError("No JSON found in AI output")
         
-        print(f"✅ JSON match found: {json_match.group()[:200]}...")
         raw_data = json.loads(json_match.group())
         
         # Normalize keys to lowercase for case-insensitive parsing
@@ -295,23 +288,38 @@ class NuExtractEngine:
             }
         }
         
-        # Parse resolution date - try multiple formats
+        # Parse resolution date - try multiple formats and field names
         resolution_date = None
+        
+        # Check all possible date field names
+        date_fields_to_check = ['resolutiondate', 'resolution', 'date', 'freezedate', 'freeze']
+        
         for key in data.keys():
-            if 'resolutiondate' in key or 'resolution' in key:
+            if any(field in key for field in date_fields_to_check):
                 date_val = data[key]
-                if date_val and date_val != "null" and isinstance(date_val, str):
+                if date_val and date_val != "null" and date_val != "" and isinstance(date_val, str):
                     # Handle various date formats
-                    if len(date_val) == 10:  # YYYY-MM-DD
+                    if len(date_val) == 10 and '-' in date_val:  # YYYY-MM-DD
                         resolution_date = f"{date_val}T23:59:59Z"
-                    elif 'T' in date_val:
+                        break
+                    elif 'T' in date_val and 'Z' in date_val:
                         resolution_date = date_val
+                        break
                     else:
-                        # Try to parse natural language dates (re already imported at top)
+                        # Try to extract YYYY-MM-DD from text
                         date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', date_val)
                         if date_match:
                             resolution_date = f"{date_match.group(0)}T23:59:59Z"
-                break
+                            break
+                        
+                        # Try to parse natural language dates like "June 11, 2026"
+                        try:
+                            from dateutil import parser as date_parser
+                            parsed_date = date_parser.parse(date_val, fuzzy=True)
+                            resolution_date = parsed_date.strftime("%Y-%m-%dT23:59:59Z")
+                            break
+                        except:
+                            pass  # Failed to parse, try next field
         
         # Build category
         category = data.get("category", "").lower().strip()

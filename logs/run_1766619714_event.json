@@ -1,0 +1,35 @@
+{
+  "source": "article_sportingnews_us_soccer_news_world-cup-2026-start-first-game-ope",
+  "title": "When does World Cup 2026 start?",
+  "description": "Market based on: When does World Cup 2026 start? Date, time of first game, opening ceremony at FIFA soccer tournament\nKyle Bonn\n•\nGetty\nFans all across North America, and around the globe, have experienced skyrocketing anticipation for the 2026 FIFA World Cup.\nIn the",
+  "category": "sports",
+  "tags": [
+    "sports"
+  ],
+  "market_type": "three_choice",
+  "outcomes": [
+    "Yes",
+    "No Change",
+    "No"
+  ],
+  "initial_probabilities": [
+    0.5,
+    0.0,
+    0.5
+  ],
+  "source_url": "https://www.sportingnews.com/us/soccer/news/world-cup-2026-start-first-game-opening-ceremony/dd81bc791ce41077698657ae",
+  "image_url": null,
+  "dates": {
+    "published": "2025-12-24T23:41:57.233810+00:00",
+    "freeze": null,
+    "resolution": null
+  },
+  "resolution_rules": {
+    "provider": "oracle_v1",
+    "data_source": "news_api",
+    "conditions": {
+      "YES": "Event confirmed via news_api",
+      "NO": "Event not confirmed via news_api"
+    }
+  }
+}

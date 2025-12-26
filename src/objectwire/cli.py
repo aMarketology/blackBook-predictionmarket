@@ -1230,6 +1230,13 @@ def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool, no_ai: 
         objectwire scrape https://example.com --json
     """
     
+    # Create logs directory if it doesn't exist
+    logs_dir = Path("./logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Generate timestamp for this run
+    run_timestamp = int(time.time())
+    
     # Step 1: Scrape the URL
     with console.status("[cyan]🌐 Scraping URL..."):
         data = scrape_url(url)
@@ -1239,6 +1246,18 @@ def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool, no_ai: 
         sys.exit(1)
     
     console.print(f"[green]✓[/] Scraped: [bold]{data['title'][:60]}...[/]")
+    
+    # Save scraped content
+    scraped_file = logs_dir / f"run_{run_timestamp}_scraped.txt"
+    with open(scraped_file, 'w', encoding='utf-8') as f:
+        f.write(f"=== SCRAPED CONTENT ===\n")
+        f.write(f"Timestamp: {datetime.now(timezone.utc).isoformat()}\n")
+        f.write(f"URL: {url}\n")
+        f.write(f"Title: {data['title']}\n")
+        f.write(f"Domain: {data.get('domain', 'N/A')}\n")
+        f.write(f"\n=== CONTENT ===\n")
+        f.write(data['content'])
+        f.write(f"\n\n=== END ===\n")
     
     # Step 2: Extract event with AI (unless --no-ai flag)
     if not no_ai:
@@ -1270,6 +1289,13 @@ def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool, no_ai: 
         # Use legacy extraction without AI
         event = analyze(data)
         event_dict = build_market_payload(event)
+    
+    # Save blockchain event JSON
+    event_file = logs_dir / f"run_{run_timestamp}_event.json"
+    with open(event_file, 'w', encoding='utf-8') as f:
+        json.dump(event_dict, f, indent=2, ensure_ascii=False)
+    
+    console.print(f"[dim]💾 Saved to: {event_file}[/]")
     
     # Step 3: Display results
     console.print("\n[bold cyan]═══ BLOCKCHAIN EVENT ═══[/]")
