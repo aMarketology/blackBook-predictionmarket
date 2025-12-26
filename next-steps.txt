@@ -4,8 +4,8 @@
                     + Article Drafting Engine
 ================================================================================
 
-Last Updated: December 14, 2025
-Status: Active Development
+Last Updated: January 2, 2026
+Status: Active Development - Phase 1 in Progress
 
 PURPOSE:
 - Scrape social events from RSS feeds, URLs, and APIs
@@ -13,41 +13,97 @@ PURPOSE:
 - Draft articles/content based on scraped market opportunities
 - Track creator metrics and velocity events in real-time
 
+RECENT ACHIEVEMENTS (✅ Completed):
+- Implemented NuExtract 1.5 AI for event extraction
+- Optimized AI to <10s extraction time
+- Added natural language date parsing (dateutil)
+- Created automatic file logging system (./logs/)
+- Built blockchain-format event generation
+- Cleaned git history (removed model files, .env)
+- Created comprehensive ROADMAP.md
+
+SEE ROADMAP.md FOR LONG-TERM STRATEGIC PLAN (5 Phases, 12+ Months)
+
 ================================================================================
-PHASE 1: IMMEDIATE (This Week)
+PHASE 1: IMMEDIATE PRIORITIES (This Week - Critical Path)
 ================================================================================
 
-[ ] 1.1 YouTube API Integration
+[ ] 1.1 Blockchain Payload Logging ⚡ HIGH PRIORITY
+    - When user runs: python -m objectwire scrape URL --post
+    - After successful blockchain POST, save actual payload to:
+      ./logs/run_[timestamp]_blockchain_payload.txt
+    - Include full JSON sent to localhost:3000/events
+    - File to modify: src/objectwire/cli.py (post_to_blockchain_dict)
+    
+[ ] 1.2 Grok Article Writer Integration ⚡ HIGH PRIORITY
+    - After successful blockchain post, prompt user:
+      "Would you like to write an article about this event? [y/N]"
+    - If yes: Call GrokArticleWriter.write_article()
+    - Save article to: ./logs/run_[timestamp]_article.txt
+    - Files to modify: 
+      * src/objectwire/cli.py (scrape command)
+      * src/objectwire/grok_writer.py (already created)
+    - Dependencies: openai library, GROK_API_KEY in .env
+
+[ ] 1.3 RSS Feed Processing
+    - Implement feed parsing (feedparser library)
+    - Extract multiple articles from single feed
+    - Batch process with AI (5-10 articles at once)
+    - Add --feed flag: python -m objectwire scrape --feed URL
+    - File: src/objectwire/feed_processor.py
+
+[ ] 1.4 Batch Processing Mode
+    - Accept multiple URLs at once (CSV, text file, or stdin)
+    - Process in parallel (5 concurrent workers)
+    - Generate combined report with all events
+    - Add --batch flag: python -m objectwire scrape --batch urls.txt
+    - Target: 100+ articles/day processing capacity
+
+[ ] 1.5 Probability Extraction Refinement
+    - Analyze AI output patterns for probability accuracy
+    - Improve prompt to generate realistic yes/no/no_change values
+    - Add sentiment analysis keywords (bullish, bearish, unlikely, etc.)
+    - Validate: Sum of probabilities should be ~100%
+    - Test with 20+ diverse articles to measure accuracy
+
+[ ] 1.6 Freeze Date vs Resolution Date Logic
+    - Implement smart date setting:
+      * Freeze date = 1 day before event (betting closes)
+      * Resolution date = event date (outcome determined)
+    - Add date validation (freeze must be < resolution)
+    - Update AI prompt to extract both dates from article
+    - File to modify: src/objectwire/llama_engine.py
+
+================================================================================
+PHASE 2: SHORT-TERM (Next 2 Weeks)
+================================================================================
+
+[ ] 2.1 YouTube API Integration
     - Get YouTube Data API v3 credentials
     - Implement video stats fetcher (views, likes, comments)
     - Implement channel stats fetcher (subscribers, total views)
     - Add rate limiting and caching
     - File: src/objectwire/oracles/youtube.py
 
-[ ] 1.2 Velocity Market Generator
+[ ] 2.2 Velocity Market Generator
     - Auto-detect "velocity potential" in scraped articles
     - Generate timeframe suggestions (6h, 12h, 24h, 48h, 7d)
     - Calculate target thresholds from historical data
     - Add "Will X hit Y views in Z hours?" template
     - Example: "Will GTA VI Trailer #2 hit 100M views in 24 hours?"
 
-[ ] 1.3 Creator Database
+[ ] 2.3 Creator Database
     - Build JSON/SQLite database of tracked creators
     - Fields: name, platform, channel_id, avg_views, subscribers
     - Auto-populate from scraped URLs
     - Track: MrBeast, Sidemen, KSI, Logan Paul, IShowSpeed, Kai Cenat
     - File: data/creators.json
 
-[ ] 1.4 Resolution Rules Engine
+[ ] 2.4 Resolution Rules Engine
     - Define resolution rule schema
     - Add API endpoint checker
     - Implement countdown timer display
     - Auto-resolve markets when timeframe expires
-
-[ ] 1.5 Article Drafting Engine (NEW)
-    - Generate article drafts from scraped market opportunities
-    - Templates for: market analysis, creator profiles, trend reports
-    - Auto-include relevant stats and predictions
     - Output formats: Markdown, HTML, JSON
     - CLI command: `objectwire draft <url>`
     - File: src/objectwire/drafts/article_generator.py

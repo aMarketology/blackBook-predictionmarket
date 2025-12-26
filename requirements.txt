@@ -1,6 +1,28 @@
-# BlackBook URL Scraper - Minimal Dependencies
+# ObjectWire - Prediction Market CLI
+# Core dependencies
 requests>=2.31.0
 beautifulsoup4>=4.12.0
-pydantic>=2.0.0
+pydantic>=2.5.0
 python-dotenv>=1.0.0
-openai>=1.0.0
+
+# CLI & UI
+click>=8.1.0
+rich>=13.7.0
+prompt_toolkit>=3.0.43
+
+# AI & Content Generation
+google-generativeai>=0.3.0    # Gemini 2.0 for article writing
+python-dateutil>=2.9.0        # Natural language date parsing
+
+# RSS & Feeds
+feedparser>=6.0.11            # RSS/Atom feed parsing
+
+# Database
+# (SQLite is built into Python)
+
+# Blockchain (optional, for L2 deployment)
+web3>=6.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

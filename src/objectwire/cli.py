@@ -1208,6 +1208,11 @@ def main(ctx, dev: bool, debug: bool):
         DEBUG_MODE = True
         console.print("[dim cyan]🔍 Debug mode enabled[/]")
     
+    # Show AI-powered greeting on startup
+    if ctx.invoked_subcommand is None:
+        from objectwire.ai_greeter import get_welcome_banner
+        console.print(get_welcome_banner())
+    
     if dev:
         run_dev_mode()
     elif ctx.invoked_subcommand is None:
@@ -1344,8 +1349,35 @@ def scrape(url: str, post: bool, as_json: bool, as_xml: bool, yes: bool, no_ai: 
             console.print(f"\n[green]✅ Posted to blockchain![/]")
             if event_id:
                 console.print(f"[bold]Market ID:[/] {event_id}")
+            
+            # Save the actual payload that was sent to blockchain
+            payload_file = logs_dir / f"run_{run_timestamp}_blockchain_payload.txt"
+            with open(payload_file, 'w', encoding='utf-8') as f:
+                f.write("=== BLOCKCHAIN PAYLOAD ===\n")
+                f.write(f"Timestamp: {datetime.now(timezone.utc).isoformat()}\n")
+                f.write(f"Market ID: {event_id}\n")
+                f.write(f"Status: SUCCESS\n")
+                f.write(f"\n=== PAYLOAD SENT ===\n")
+                f.write(json.dumps(event_dict, indent=2, ensure_ascii=False))
+                f.write(f"\n\n=== RESPONSE ===\n")
+                f.write(json.dumps(result, indent=2, ensure_ascii=False))
+                f.write(f"\n\n=== END ===\n")
+            
+            console.print(f"[dim]💾 Blockchain payload saved to: {payload_file}[/]")
         else:
             console.print("\n[red]❌ Failed to post to blockchain[/]")
+            
+            # Save failed attempt
+            payload_file = logs_dir / f"run_{run_timestamp}_blockchain_payload_FAILED.txt"
+            with open(payload_file, 'w', encoding='utf-8') as f:
+                f.write("=== BLOCKCHAIN PAYLOAD (FAILED) ===\n")
+                f.write(f"Timestamp: {datetime.now(timezone.utc).isoformat()}\n")
+                f.write(f"Status: FAILED\n")
+                f.write(f"\n=== PAYLOAD ATTEMPTED ===\n")
+                f.write(json.dumps(event_dict, indent=2, ensure_ascii=False))
+                f.write(f"\n\n=== END ===\n")
+            
+            console.print(f"[dim]💾 Failed payload saved to: {payload_file}[/]")
     else:
         console.print("[dim]💡 Tip: Add --post to publish to blockchain[/]")
 
