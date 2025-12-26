@@ -2,6 +2,7 @@
 .env
 *.env
 !.env.example
+.env 
 
 nuextract-smol-1.5-q4_k_m.gguf
 # Python
