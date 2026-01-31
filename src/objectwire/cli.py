@@ -54,6 +54,209 @@ BLOCKCHAIN_URL = os.getenv("BLOCKCHAIN_API_URL", "http://localhost:1234")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEBUG_MODE = os.getenv("OBJECTWIRE_DEBUG", "false").lower() == "true"
 
+# Gemma 2 Integration (lazy loaded)
+_gemma_engine = None
+
+def get_gemma_engine():
+    """Lazy load Gemma engine to avoid import errors if not installed."""
+    global _gemma_engine
+    if _gemma_engine is None:
+        try:
+            from .gemma_engine import GemmaEngine, WorldCupGemmaWriter
+            _gemma_engine = {
+                "engine": GemmaEngine(),
+                "writer": WorldCupGemmaWriter()
+            }
+        except ImportError:
+            _gemma_engine = {"engine": None, "writer": None}
+    return _gemma_engine
+
+def gemma_is_available():
+    """Check if Gemma 2 is available for use."""
+    gemma = get_gemma_engine()
+    if gemma["engine"] is None:
+        return False
+    return gemma["engine"].is_available()
+
+def chat_with_gemma(message: str, context: str = "") -> str:
+    """Send a message to Gemma 2 and get a response."""
+    gemma = get_gemma_engine()
+    if gemma["engine"] is None:
+        return "❌ Gemma engine not available. Install with: pip install requests"
+    
+    if not gemma["engine"].is_available():
+        return "❌ Gemma 2 not running. Start with: brew services start ollama && ollama pull gemma2"
+    
+    system_prompt = """You are an AI assistant for ObjectWire, a World Cup journalism platform. 
+    You help users write articles, analyze scraped content, and generate World Cup coverage.
+    You have access to article scraping capabilities - when given scraped content, help write compelling articles.
+    Be concise, professional, and focused on sports journalism."""
+    
+    if context:
+        full_prompt = f"Context from scraped article:\n{context}\n\nUser request: {message}"
+    else:
+        full_prompt = message
+    
+    try:
+        response = gemma["engine"].generate_content(
+            prompt=full_prompt,
+            system_prompt=system_prompt,
+            temperature=0.7,
+            max_tokens=1500
+        )
+        return response.content
+    except Exception as e:
+        return f"❌ Error: {e}"
+
+
+def generate_article_with_gemma(scraped_content: dict, market_payload: dict) -> str:
+    """Generate a 500-word article using Gemma 2 from scraped content."""
+    gemma = get_gemma_engine()
+    if gemma["engine"] is None:
+        return None
+    
+    prompt = f"""You are a professional sports journalist writing for ObjectWire.org, 
+a premium investigative journalism platform covering FIFA World Cup 2026.
+
+Write a compelling 500-word article based on this source content:
+
+SOURCE TITLE: {scraped_content.get('title', 'Unknown')}
+SOURCE URL: {scraped_content.get('url', '')}
+SOURCE CONTENT: {scraped_content.get('content', '')[:2500]}
+
+PREDICTION MARKET CREATED:
+- Market Question: {market_payload.get('title', '')}
+- Outcomes: {', '.join(market_payload.get('outcomes', ['Yes', 'No']))}
+
+REQUIREMENTS:
+1. Write EXACTLY 500-600 words
+2. Use professional AP-style journalism
+3. Include the prediction market angle naturally
+4. Structure: Hook → Context → Analysis → Market Implications → Conclusion
+5. Make it engaging for sports/prediction market audience
+6. Start with a compelling headline
+
+Write the article now:"""
+
+    try:
+        response = gemma["engine"].generate_content(
+            prompt=prompt,
+            temperature=0.7,
+            max_tokens=1200
+        )
+        return response.content
+    except Exception as e:
+        debug_log(f"Article generation failed: {e}")
+        return None
+
+
+def save_generated_article(article: str, event, payload: dict) -> str:
+    """Save generated article to file."""
+    from pathlib import Path
+    import json
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Create articles directory
+    articles_dir = Path("articles")
+    articles_dir.mkdir(exist_ok=True)
+    
+    # Create logs directory  
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    
+    # Build filename
+    safe_title = "".join(c if c.isalnum() else "_" for c in event.title[:30])
+    filename = f"article_{timestamp}_{safe_title}.md"
+    
+    # Build content
+    content = f"""# {event.title}
+
+*Generated: {datetime.now().strftime("%B %d, %Y at %H:%M")}*
+*Source: {event.source_url}*
+
+---
+
+{article}
+
+---
+
+## Prediction Market Data
+```json
+{json.dumps(payload, indent=2, default=str)}
+```
+"""
+    
+    # Save to articles folder
+    filepath = articles_dir / filename
+    filepath.write_text(content)
+    
+    # Also save to logs
+    log_filepath = logs_dir / f"run_{timestamp}_article.txt"
+    log_filepath.write_text(content)
+    
+    return str(filepath)
+
+
+def publish_to_objectwire(article: str, event, payload: dict) -> bool:
+    """Publish article to ObjectWire.org API."""
+    import os
+    
+    api_key = os.getenv("OBJECTWIRE_API_KEY")
+    api_url = os.getenv("OBJECTWIRE_API_URL", "https://objectwire.org/api")
+    
+    if not api_key:
+        debug_log("ObjectWire API key not configured")
+        return False
+    
+    # Extract title from article (first line if it looks like a headline)
+    lines = article.strip().split("\n")
+    title = event.title
+    for line in lines:
+        line = line.strip()
+        if line and len(line) < 120 and not line.endswith("."):
+            title = line.replace("#", "").strip()
+            break
+    
+    # Build excerpt (first 150 chars)
+    article_body = "\n".join(lines[1:]).strip() if len(lines) > 1 else article
+    excerpt = article_body[:150].rsplit(" ", 1)[0] + "..."
+    
+    # Build payload for ObjectWire.org
+    objectwire_payload = {
+        "title": title,
+        "content": article,
+        "excerpt": excerpt,
+        "category": "world-cup",
+        "author": "ObjectWire AI",
+        "source_url": event.source_url,
+        "status": "draft",
+        "tags": payload.get("tags", ["world-cup", "fifa-2026"]),
+        "market_id": payload.get("id"),
+    }
+    
+    try:
+        response = requests.post(
+            f"{api_url}/articles",
+            json=objectwire_payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+        
+        if response.status_code in (200, 201):
+            debug_log(f"Published to ObjectWire: {response.json()}")
+            return True
+        else:
+            debug_log(f"ObjectWire publish failed: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        debug_log(f"ObjectWire publish error: {e}")
+        return False
+
 
 def debug_log(message: str, data: Any = None):
     """Print debug message if debug mode is enabled."""
@@ -740,61 +943,70 @@ def parse_rss(url: str) -> Optional[dict]:
 # ─────────────────────────────────────────────────────────────
 
 def show_banner():
-    """Display welcome banner with Claude-style layout."""
+    """Display welcome banner with clean World Cup design."""
     import os
     from datetime import datetime
     
-    # Get current directory
-    cwd = os.getcwd()
-    if len(cwd) > 35:
-        cwd = "..." + cwd[-32:]
+    # Check if Gemma 2 is available
+    gemma_status = "🟢 Online" if gemma_is_available() else "🔴 Offline"
     
-    # Build the welcome panel content with ASCII shamrock
-    left_side = f"""
-[bold orange3]ObjectWire[/] v0.1.0
-─────────────────────────────
+    # Clean round soccer ball ASCII art
+    soccer_ball = """[bold white]
+                      ⚽ OBJECTWIRE ⚽
 
-[bold orange1]      Welcome![/]
+                        [/][dim]▄▄▄▄▄▄▄▄▄[/][bold white]
+                     [/][dim]▄█[/][bold white]█████████[/][dim]█▄[/][bold white]
+                   [/][dim]▄█[/][bold white]███[/][bold black]▓▓▓[/][bold white]███[/][bold black]▓▓▓[/][bold white]███[/][dim]█▄[/][bold white]
+                  [/][dim]██[/][bold white]██[/][bold black]▓▓▓[/][bold white]█████[/][bold black]▓▓▓[/][bold white]██[/][dim]██[/][bold white]
+                  [/][dim]██[/][bold white]█[/][bold black]▓▓▓▓▓[/][bold white]███[/][bold black]▓▓▓▓▓[/][bold white]█[/][dim]██[/][bold white]
+                  [/][dim]██[/][bold white]██[/][bold black]▓▓▓[/][bold white]█████[/][bold black]▓▓▓[/][bold white]██[/][dim]██[/][bold white]
+                   [/][dim]▀█[/][bold white]███[/][bold black]▓▓▓[/][bold white]███[/][bold black]▓▓▓[/][bold white]███[/][dim]█▀[/][bold white]
+                     [/][dim]▀█[/][bold white]█████████[/][dim]█▀[/][bold white]
+                        [/][dim]▀▀▀▀▀▀▀▀▀[/][bold white]
 
-[orange3]           ,@@@,[/]
-[orange3]          @@@@@@@[/]
-[orange3]   ,@@@, '@@@@@@@' ,@@@,[/]
-[orange3]  @@@@@@@ '@@@@@@' @@@@@@@[/]
-[orange3]  '@@@@@@'  @@@@  '@@@@@@'[/]
-[orange3]    '@@@' ,@@@@@@, '@@@'[/]
-[orange3]         @@@@@@@@@@[/]
-[orange3]          '@@@@@@'[/]
-[orange3]            @@@@[/]
-[orange3]            @@[/]
-[orange3]            @@[/]
-[orange3]            @@[/]
+                   [/][bold green]World Cup 2026 Agent[/][bold white]
+[/]"""
 
-[dim]Prediction Markets[/]
-[dim]{cwd}[/]
+    # Main content
+    banner_content = f"""{soccer_ball}
+[bold yellow]┏━━━━━━━━━━━━━━━━━━━━━ WORKFLOW ━━━━━━━━━━━━━━━━━━━━━━┓[/]
+[bold yellow]┃[/]                                                    [bold yellow]┃[/]
+[bold yellow]┃[/]  [white]1.[/] [cyan]scrape <url>[/]  →  Scrape article from any URL    [bold yellow]┃[/]
+[bold yellow]┃[/]  [white]2.[/] [cyan]write[/]         →  Generate 500-word AI article   [bold yellow]┃[/]
+[bold yellow]┃[/]  [white]3.[/] [cyan]publish[/]       →  Post to ObjectWire + Blockchain[bold yellow]┃[/]
+[bold yellow]┃[/]                                                    [bold yellow]┃[/]
+[bold yellow]┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛[/]
+
+[bold green]┏━━━━━━━━━━━━━━━━━━━━━ COMMANDS ━━━━━━━━━━━━━━━━━━━━━━┓[/]
+[bold green]┃[/]                                                    [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]scrape <url>[/]    Scrape → Market → Write article   [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]rss[/]             Browse FIFA/ESPN RSS feeds        [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]monitor[/]         Monitor RSS feeds for new articles[bold green]┃[/]
+[bold green]┃[/]  [bold cyan]write[/]           Start Gemma 2 writing session     [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]chat[/]            Chat directly with Gemma 2 AI     [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]post[/]            Post last event to blockchain     [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]status[/]          Check Gemma 2 & system status     [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]help[/]            Show all commands                 [bold green]┃[/]
+[bold green]┃[/]  [bold cyan]exit[/]            Quit ObjectWire                   [bold green]┃[/]
+[bold green]┃[/]                                                    [bold green]┃[/]
+[bold green]┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛[/]
+
+[bold magenta]┏━━━━━━━━━━━━━━━━━━━━ GEMMA 2 AI ━━━━━━━━━━━━━━━━━━━━━┓[/]
+[bold magenta]┃[/]                                                    [bold magenta]┃[/]
+[bold magenta]┃[/]  Status: {gemma_status}                              [bold magenta]┃[/]
+[bold magenta]┃[/]  [dim]Local AI • No API keys • Offline capable[/]         [bold magenta]┃[/]
+[bold magenta]┃[/]                                                    [bold magenta]┃[/]
+[bold magenta]┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛[/]
 """
 
-    right_side = f"""[bold]Tips for getting started[/]
-[dim]─────────────────────────────────────────────────────[/]
-[orange3]scrape <url>[/]     Scrape a URL and generate prediction
-[orange3]rss <feed>[/]       Parse an RSS feed for articles
-[orange3]post[/]             Post last event to blockchain
-[orange3]test[/]             Test blockchain connectivity
-[orange3]status[/]           Check system status
-[orange3]help[/]             Show all available commands
-[orange3]exit[/]             Quit ObjectWire
-
-[bold]Recent Commands[/]
-[dim]─────────────────────────────────────────────────────[/]
-[dim]Type a command to get started...[/]
-"""
-
-    # Create a two-column layout
+    # Print the banner
     console.print()
     console.print(Panel(
-        Columns([left_side, right_side], expand=True, equal=False),
-        border_style="orange3",
-        title="[bold orange3]ObjectWire CLI v0.1.0[/]",
-        subtitle="[dim]AI-Powered Prediction Market Agent[/]"
+        banner_content,
+        border_style="bold white",
+        title="[bold white on blue] ⚽ ObjectWire CLI v0.1.0 ⚽ [/]",
+        subtitle="[bold green] 🇺🇸 USA  •  🇲🇽 Mexico  •  🇨🇦 Canada  │  World Cup 2026 [/]",
+        padding=(0, 2)
     ))
     console.print()
 
@@ -809,20 +1021,38 @@ def show_help():
 | `<rss_feed_url>` | Just paste an RSS feed to see 3 latest posts |
 | `<url>` | Just paste any URL to scrape and analyze it |
 | `1`, `2`, `3`... | Select article from RSS feed |
-| `1 json` | Get article 1 as JSON |
-| `2 xml` | Get article 2 as XML |
-| `3 json xml` | Get article 3 as both JSON and XML |
 | `scrape <url>` | Scrape URL and generate prediction event |
 | `rss <feed_url>` | Parse and display RSS feed items (15 max) |
+| `monitor` | Monitor FIFA RSS feeds for new articles |
 | `post` | Post last event to blockchain |
 | `copy` or `c` | Copy last event to clipboard (JSON) |
-| `copy xml` | Copy last event to clipboard (XML) |
 | `paste` or `v` | Paste URL from clipboard and process it |
-| `test` | Test blockchain connectivity |
 | `status` | Check system status |
-| `debug` | Toggle debug mode (verbose logging) |
 | `help` | Show this help |
 | `exit` or `q` | Quit ObjectWire |
+
+## 🤖 Gemma 2 AI Commands
+
+| Command | Description |
+|---------|-------------|
+| `chat` | Enter Gemma 2 chat mode - talk directly with AI |
+| `write` | Write an article using Gemma 2 + scraped content |
+
+## 📡 RSS Monitor Command
+
+| Command | Description |
+|---------|-------------|
+| `monitor` | Start monitoring RSS feeds (5min interval) |
+| `monitor --auto-write` | Auto-generate articles with Gemma 2 |
+| `monitor --interval=60` | Set custom check interval (seconds) |
+| `monitor -a --interval=300` | Combine options |
+
+## Gemma Chat Mode
+
+Once in chat mode, you can:
+- Ask Gemma to write articles about any World Cup topic
+- Use scraped content as context for better articles  
+- Type `exit` to return to ObjectWire commands
 
 ## Keyboard Shortcuts
 
@@ -837,6 +1067,7 @@ def show_help():
 ```
 v                                    # Paste & process URL from clipboard
 https://feeds.bbci.co.uk/news/rss.xml
+monitor --auto-write                 # Start RSS monitoring with auto-write
 copy
 post
 debug                                # Enable debug mode
@@ -869,6 +1100,170 @@ def show_status():
         table.add_row("Blockchain Status", "[red]✗ Offline[/]")
     
     console.print(table)
+
+
+# ═══════════════════════════════════════════════════════════════
+# RSS MONITORING (Phase 2B)
+# ═══════════════════════════════════════════════════════════════
+
+# Track processed URLs to avoid duplicates
+PROCESSED_URLS_FILE = Path.home() / ".objectwire_processed_urls.txt"
+
+def load_processed_urls() -> set:
+    """Load set of already processed article URLs."""
+    if PROCESSED_URLS_FILE.exists():
+        return set(PROCESSED_URLS_FILE.read_text().strip().split('\n'))
+    return set()
+
+def save_processed_url(url: str):
+    """Mark URL as processed."""
+    with open(PROCESSED_URLS_FILE, 'a') as f:
+        f.write(f"{url}\n")
+
+def is_url_processed(url: str) -> bool:
+    """Check if URL was already processed."""
+    processed = load_processed_urls()
+    return url in processed
+
+def filter_world_cup_article(title: str, description: str = "") -> bool:
+    """Check if article is World Cup related."""
+    # Load keywords from config
+    try:
+        from objectwire.worldcup.feeds import WORLD_CUP_KEYWORDS, WORLD_CUP_TEAMS
+        
+        text = (title + " " + description).lower()
+        
+        # Check keywords
+        for keyword in WORLD_CUP_KEYWORDS:
+            if keyword.lower() in text:
+                return True
+        
+        # Check team names
+        for team in WORLD_CUP_TEAMS:
+            if team.lower() in text:
+                return True
+                
+    except ImportError:
+        # If config not found, allow all articles
+        return True
+    
+    return False
+
+def monitor_rss_feeds(interval: int = 300, auto_write: bool = False, max_articles: int = 3):
+    """Monitor FIFA RSS feeds for new World Cup articles."""
+    try:
+        from objectwire.worldcup.feeds import WORLD_CUP_RSS_FEEDS
+    except ImportError:
+        console.print("[red]❌ RSS feed configuration not found![/]")
+        console.print("[dim]Expected: src/objectwire/worldcup/feeds.py[/]")
+        return
+    
+    console.print("\n[bold green]⚽ Starting World Cup RSS Monitor[/]")
+    console.print(f"[dim]Monitoring {len(WORLD_CUP_RSS_FEEDS)} feeds every {interval}s[/]")
+    console.print(f"[dim]Auto-write articles: {'✓ Enabled' if auto_write else '✗ Disabled'}[/]")
+    console.print(f"[dim]Max articles per feed: {max_articles}[/]")
+    console.print(f"[dim]Processed URLs tracking: {PROCESSED_URLS_FILE}[/]")
+    console.print("\n[yellow]Press Ctrl+C to stop monitoring[/]\n")
+    
+    cycle_count = 0
+    
+    try:
+        while True:
+            cycle_count += 1
+            console.print(f"[bold cyan]━━━ Cycle {cycle_count} - {datetime.now().strftime('%H:%M:%S')} ━━━[/]")
+            
+            articles_found = 0
+            articles_processed = 0
+            
+            for feed_name, feed_url in WORLD_CUP_RSS_FEEDS.items():
+                try:
+                    console.print(f"[dim]Checking {feed_name}...[/]", end=" ")
+                    
+                    feed = parse_rss(feed_url)
+                    if not feed or not feed.get("items"):
+                        console.print("[yellow]⚠ No items[/]")
+                        continue
+                    
+                    feed_articles_found = 0
+                    
+                    for item in feed["items"][:max_articles]:
+                        article_url = item["link"]
+                        article_title = item["title"]
+                        
+                        # Check if already processed
+                        if is_url_processed(article_url):
+                            continue
+                        
+                        # Filter for World Cup content
+                        if not filter_world_cup_article(article_title, item.get("description", "")):
+                            continue
+                        
+                        feed_articles_found += 1
+                        articles_found += 1
+                        
+                        console.print(f"\n[cyan]📰 New article from {feed_name}[/]")
+                        console.print(f"[white]{article_title}[/]")
+                        console.print(f"[dim]{article_url}[/]")
+                        
+                        if auto_write:
+                            try:
+                                # Scrape article
+                                with console.status("[green]Scraping...", spinner="dots"):
+                                    data = scrape_url(article_url)
+                                
+                                if not data:
+                                    console.print("[red]  ✗ Failed to scrape[/]")
+                                    save_processed_url(article_url)
+                                    continue
+                                
+                                # Analyze and create market
+                                event = analyze(data)
+                                payload = build_market_payload(event)
+                                
+                                # Generate article with Gemma 2
+                                if gemma_is_available():
+                                    with console.status("[orange3]Generating article...", spinner="dots"):
+                                        article = generate_article_with_gemma(data, payload)
+                                    
+                                    if article:
+                                        # Save article
+                                        filepath = save_generated_article(article, event, payload)
+                                        word_count = len(article.split())
+                                        console.print(f"[green]  ✓ Article generated ({word_count} words)[/]")
+                                        console.print(f"[dim]  Saved to: {filepath}[/]")
+                                        articles_processed += 1
+                                    else:
+                                        console.print("[yellow]  ⚠ Article generation failed[/]")
+                                else:
+                                    console.print("[yellow]  ⚠ Gemma 2 not available[/]")
+                                
+                            except Exception as e:
+                                console.print(f"[red]  ✗ Error: {str(e)[:50]}[/]")
+                        
+                        # Mark as processed
+                        save_processed_url(article_url)
+                    
+                    if feed_articles_found > 0:
+                        console.print(f"[green]✓ {feed_articles_found} new[/]")
+                    else:
+                        console.print("[dim]✓ No new[/]")
+                        
+                except Exception as e:
+                    console.print(f"[red]✗ Error: {str(e)[:30]}[/]")
+            
+            # Summary
+            console.print(f"\n[bold]Summary:[/] {articles_found} new articles found")
+            if auto_write:
+                console.print(f"[bold]Processed:[/] {articles_processed} articles written")
+            
+            # Wait for next cycle
+            console.print(f"[dim]Next check in {interval}s... (Ctrl+C to stop)[/]\n")
+            time.sleep(interval)
+            
+    except KeyboardInterrupt:
+        console.print("\n\n[yellow]⚠ Monitor stopped by user[/]")
+        console.print(f"[dim]Ran {cycle_count} cycles[/]")
+        console.print(f"[dim]Processed URLs saved to: {PROCESSED_URLS_FILE}[/]")
 
 
 def interactive_mode():
@@ -942,6 +1337,46 @@ def interactive_mode():
                     else:
                         console.print("[yellow]⚠ Could not post to blockchain (service may be offline)[/]")
                     
+                    # === PHASE 1: Auto-prompt for article writing ===
+                    if gemma_is_available():
+                        write_article = session.prompt("\n[bold orange3]📝 Write 500-word article with Gemma 2? [y/N]:[/] ").strip().lower()
+                        if write_article in ("y", "yes"):
+                            # Store scraped data for article generation
+                            scraped_content = {
+                                "title": data.get("title", last_event.title),
+                                "url": data.get("url", last_event.source_url),
+                                "content": data.get("text", data.get("content", ""))
+                            }
+                            
+                            # Generate article with Gemma 2
+                            console.print("\n[orange3]Generating 500-word article with Gemma 2...[/]")
+                            with console.status("[orange3]✍️ Writing article...", spinner="dots"):
+                                article = generate_article_with_gemma(scraped_content, payload)
+                            
+                            if article:
+                                console.print("\n[bold green]📰 Article Generated![/]")
+                                console.print("─" * 60)
+                                console.print(article)
+                                console.print("─" * 60)
+                                console.print(f"[dim]Word count: {len(article.split())}[/]")
+                                
+                                # Offer to save
+                                save_it = session.prompt("\n[yellow]Save article? [y/N]:[/] ").strip().lower()
+                                if save_it in ("y", "yes"):
+                                    filepath = save_generated_article(article, last_event, payload)
+                                    console.print(f"[green]✓ Saved to {filepath}[/]")
+                                
+                                # Offer to publish to ObjectWire.org
+                                publish_it = session.prompt("[yellow]Publish to ObjectWire.org? [y/N]:[/] ").strip().lower()
+                                if publish_it in ("y", "yes"):
+                                    publish_result = publish_to_objectwire(article, last_event, payload)
+                                    if publish_result:
+                                        console.print(f"[green]✓ Published to ObjectWire.org![/]")
+                                    else:
+                                        console.print("[yellow]⚠ Could not publish (API not configured)[/]")
+                            else:
+                                console.print("[red]❌ Failed to generate article[/]")
+                    
                     continue
                 else:
                     console.print(f"[red]Invalid article number. Choose 1-{len(last_rss_items)}[/]")
@@ -958,6 +1393,150 @@ def interactive_mode():
                 DEBUG_MODE = not DEBUG_MODE
                 status = "[green]enabled[/]" if DEBUG_MODE else "[yellow]disabled[/]"
                 console.print(f"[dim cyan]🔍 Debug mode {status}[/]")
+            
+            # Chat with Gemma 2
+            elif action == "chat":
+                console.print("\n[bold orange3]🤖 Gemma 2 Chat Mode[/]")
+                console.print("[dim]Talk directly with Gemma 2 AI. Type 'exit' to return to ObjectWire.[/]")
+                
+                if not gemma_is_available():
+                    console.print("[red]❌ Gemma 2 not available. Make sure Ollama is running:[/]")
+                    console.print("[dim]  brew services start ollama[/]")
+                    console.print("[dim]  ollama pull gemma2[/]")
+                    continue
+                
+                console.print("[green]✓ Gemma 2 connected and ready![/]")
+                
+                # Get last scraped content as context
+                last_scraped_content = ""
+                if last_event:
+                    last_scraped_content = f"Title: {last_event.title}\nDescription: {last_event.description}"
+                    console.print(f"[dim]Context loaded from last scraped article[/]")
+                
+                # Enter chat loop
+                while True:
+                    try:
+                        user_input = session.prompt("\n[gemma]> ").strip()
+                        if not user_input:
+                            continue
+                        if user_input.lower() in ("exit", "quit", "q", "back"):
+                            console.print("[dim]Returning to ObjectWire...[/]")
+                            break
+                        
+                        with console.status("[orange3]Gemma 2 is thinking...", spinner="dots"):
+                            response = chat_with_gemma(user_input, last_scraped_content)
+                        
+                        console.print(f"\n[bold green]Gemma:[/] {response}")
+                        
+                    except KeyboardInterrupt:
+                        console.print("\n[dim]Chat interrupted. Returning to ObjectWire...[/]")
+                        break
+            
+            # Write article with Gemma 2
+            elif action == "write":
+                console.print("\n[bold orange3]📝 Article Writer (Gemma 2)[/]")
+                
+                if not gemma_is_available():
+                    console.print("[red]❌ Gemma 2 not available. Make sure Ollama is running.[/]")
+                    continue
+                
+                if not last_event:
+                    console.print("[yellow]No scraped content available. Scrape a URL first or provide a topic:[/]")
+                    topic = session.prompt("[write topic]> ").strip()
+                    if not topic:
+                        continue
+                    
+                    with console.status("[orange3]Gemma 2 is writing...", spinner="dots"):
+                        article = chat_with_gemma(f"Write a World Cup news article about: {topic}")
+                    
+                    console.print("\n[bold green]📰 Article Generated![/]")
+                    console.print("─" * 60)
+                    console.print(article)
+                    console.print("─" * 60)
+                else:
+                    # Use scraped content
+                    context = f"Title: {last_event.title}\nDescription: {last_event.description}\nSource: {last_event.source_url}"
+                    
+                    console.print(f"[dim]Using scraped content: {last_event.title[:50]}...[/]")
+                    
+                    with console.status("[orange3]Gemma 2 is writing...", spinner="dots"):
+                        article = chat_with_gemma(
+                            "Write a compelling World Cup article based on this scraped content. "
+                            "Make it suitable for ObjectWire.org journalism standards.",
+                            context
+                        )
+                    
+                    console.print("\n[bold green]📰 Article Generated![/]")
+                    console.print("─" * 60)
+                    console.print(article)
+                    console.print("─" * 60)
+                    
+                    # Offer to save
+                    save = session.prompt("\n[yellow]Save article? (y/n):[/] ").strip().lower()
+                    if save in ("y", "yes"):
+                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        filename = f"article_{timestamp}.txt"
+                        filepath = Path("articles") / filename
+                        filepath.parent.mkdir(exist_ok=True)
+                        filepath.write_text(article)
+                        console.print(f"[green]✓ Saved to {filepath}[/]")
+            
+            # Monitor RSS feeds
+            elif action == "monitor":
+                console.print("\n[bold green]⚽ RSS Feed Monitor[/]")
+                console.print("[dim]Monitor FIFA/World Cup RSS feeds for new articles[/]\n")
+                
+                # Parse options
+                interval = 300  # default 5 minutes
+                auto_write = False
+                max_articles = 3
+                
+                if args:
+                    parts = args.split()
+                    for part in parts:
+                        if part.startswith("--interval="):
+                            try:
+                                interval = int(part.split("=")[1])
+                            except:
+                                pass
+                        elif part in ("--auto-write", "-a"):
+                            auto_write = True
+                        elif part.startswith("--max="):
+                            try:
+                                max_articles = int(part.split("=")[1])
+                            except:
+                                pass
+                
+                # Show configuration
+                table = Table(title="Monitor Configuration")
+                table.add_column("Setting", style="cyan")
+                table.add_column("Value", style="white")
+                table.add_row("Check Interval", f"{interval} seconds ({interval//60} min)")
+                table.add_row("Auto-Write Articles", "✓ Enabled" if auto_write else "✗ Disabled")
+                table.add_row("Max per Feed", str(max_articles))
+                table.add_row("Gemma 2 Status", "🟢 Online" if gemma_is_available() else "🔴 Offline")
+                console.print(table)
+                
+                if not gemma_is_available() and auto_write:
+                    console.print("\n[yellow]⚠ Warning: Gemma 2 is offline but auto-write is enabled[/]")
+                    console.print("[dim]Start Ollama: brew services start ollama[/]")
+                    continue_anyway = session.prompt("Continue anyway? [y/N]: ").strip().lower()
+                    if continue_anyway not in ("y", "yes"):
+                        continue
+                
+                console.print("\n[dim]Usage examples:[/]")
+                console.print("[dim]  monitor                    # Check every 5 min, no auto-write[/]")
+                console.print("[dim]  monitor --auto-write       # Auto-generate articles[/]")
+                console.print("[dim]  monitor --interval=60      # Check every 60 seconds[/]")
+                console.print("[dim]  monitor -a --interval=300  # Combine options[/]")
+                
+                confirm = session.prompt("\n[yellow]Start monitoring? [y/N]:[/] ").strip().lower()
+                if confirm not in ("y", "yes"):
+                    console.print("[dim]Cancelled.[/]")
+                    continue
+                
+                # Start monitoring (this will block until Ctrl+C)
+                monitor_rss_feeds(interval=interval, auto_write=auto_write, max_articles=max_articles)
             
             # Help
             elif action == "help":
@@ -983,6 +1562,9 @@ def interactive_mode():
                 last_event = analyze(data)
                 display_market_panel(last_event)
                 
+                # Build payload
+                payload = build_market_payload(last_event)
+                
                 # Auto-post to blockchain
                 with console.status("[green]Posting to blockchain..."):
                     result = post_to_blockchain(last_event)
@@ -995,6 +1577,44 @@ def interactive_mode():
                             console.print(f"[dim]Event ID: {event_id}[/]")
                 else:
                     console.print("[yellow]⚠ Could not post to blockchain (service may be offline)[/]")
+                
+                # === PHASE 1: Auto-prompt for article writing ===
+                if gemma_is_available():
+                    write_article = session.prompt("\n[bold orange3]📝 Write 500-word article with Gemma 2? [y/N]:[/] ").strip().lower()
+                    if write_article in ("y", "yes"):
+                        scraped_content = {
+                            "title": data.get("title", last_event.title),
+                            "url": args,
+                            "content": data.get("text", data.get("content", ""))
+                        }
+                        
+                        console.print("\n[orange3]Generating 500-word article with Gemma 2...[/]")
+                        with console.status("[orange3]✍️ Writing article...", spinner="dots"):
+                            article = generate_article_with_gemma(scraped_content, payload)
+                        
+                        if article:
+                            console.print("\n[bold green]📰 Article Generated![/]")
+                            console.print("─" * 60)
+                            console.print(article)
+                            console.print("─" * 60)
+                            console.print(f"[dim]Word count: {len(article.split())}[/]")
+                            
+                            # Offer to save
+                            save_it = session.prompt("\n[yellow]Save article? [y/N]:[/] ").strip().lower()
+                            if save_it in ("y", "yes"):
+                                filepath = save_generated_article(article, last_event, payload)
+                                console.print(f"[green]✓ Saved to {filepath}[/]")
+                            
+                            # Offer to publish
+                            publish_it = session.prompt("[yellow]Publish to ObjectWire.org? [y/N]:[/] ").strip().lower()
+                            if publish_it in ("y", "yes"):
+                                publish_result = publish_to_objectwire(article, last_event, payload)
+                                if publish_result:
+                                    console.print(f"[green]✓ Published to ObjectWire.org![/]")
+                                else:
+                                    console.print("[yellow]⚠ Could not publish (API not configured)[/]")
+                        else:
+                            console.print("[red]❌ Failed to generate article[/]")
             
             # RSS
             elif action == "rss":

@@ -1,0 +1,110 @@
+# ObjectWire World Cup 2026 Writing Agent
+# Specialized journalism automation for FIFA World Cup coverage
+
+# Core Web Framework & HTTP
+aiohttp>=3.9.0              # Async HTTP client for API integration
+requests>=2.31.0            # HTTP requests for web scraping
+beautifulsoup4>=4.12.0      # HTML parsing and content extraction
+
+# CLI Framework & UI
+click>=8.1.0                # Command line interface framework
+rich>=13.7.0                # Beautiful terminal UI and formatting
+prompt_toolkit>=3.0.43      # Interactive CLI features
+
+# Content Generation & AI
+google-generativeai>=0.3.0  # Gemini 2.0 for article generation
+openai>=1.0.0               # Optional: OpenAI for additional AI features
+
+# Data Processing
+pydantic>=2.5.0             # Data validation and serialization
+python-dotenv>=1.0.0        # Environment variable management
+python-dateutil>=2.9.0      # Natural language date parsing
+
+# Feed Monitoring & Real-time Data
+feedparser>=6.0.11          # RSS/Atom feed parsing for news monitoring
+websockets>=11.0.2          # Real-time live blog updates
+asyncio-mqtt>=0.13.0        # MQTT for real-time sports data (optional)
+
+# Database & Storage
+sqlalchemy>=2.0.0           # Database ORM for content management
+alembic>=1.13.0            # Database migrations
+sqlite3                     # Built into Python (local development)
+psycopg2-binary>=2.9.0     # PostgreSQL adapter (production)
+
+# File & Content Processing
+pypdf>=3.17.0              # PDF document processing
+python-docx>=1.1.0         # Word document processing
+pillow>=10.1.0             # Image processing for featured images
+markdown>=3.5.0            # Markdown processing for content
+
+# News & Sports Data APIs
+newsapi-python>=0.2.7      # NewsAPI integration
+espn-api>=0.15.0           # ESPN sports data (community package)
+fifa-api>=1.0.0           # FIFA data (if available)
+
+# Social Media Integration
+tweepy>=4.14.0             # Twitter/X integration for social monitoring
+facebook-sdk>=3.1.0        # Facebook API integration
+instagram-basic-display>=2.0.0  # Instagram integration
+
+# Analytics & SEO
+google-analytics-data>=0.18.0   # Google Analytics integration
+pytrends>=4.9.2            # Google Trends data for keyword research
+textstat>=0.7.3            # Text readability analysis
+
+# Monitoring & Logging
+prometheus-client>=0.19.0   # Metrics and monitoring
+sentry-sdk>=1.39.0         # Error tracking and performance monitoring
+structlog>=23.2.0          # Structured logging
+
+# Testing & Development
+pytest>=7.4.0             # Testing framework
+pytest-asyncio>=0.21.0     # Async testing support
+pytest-cov>=4.1.0         # Test coverage reporting
+black>=23.12.0             # Code formatting
+isort>=5.13.0              # Import sorting
+mypy>=1.7.0               # Type checking
+
+# Deployment & Production
+gunicorn>=21.2.0           # WSGI server for production
+uvicorn>=0.24.0           # ASGI server for async applications
+docker>=6.1.0             # Docker integration
+kubernetes>=28.1.0        # Kubernetes client (if using K8s)
+
+# Security & Authentication
+cryptography>=41.0.8      # Encryption and secure data handling
+pyjwt>=2.8.0              # JWT token handling
+passlib>=1.7.4            # Password hashing
+bcrypt>=4.1.2             # Bcrypt hashing algorithm
+
+# Email & Notifications
+sendgrid>=6.11.0          # Email delivery service
+twilio>=8.11.0            # SMS notifications
+discord-webhook>=1.3.0     # Discord notifications
+slack-sdk>=3.26.0         # Slack integration
+
+# Data Visualization & Charts
+plotly>=5.17.0            # Interactive charts for analytics
+matplotlib>=3.8.0         # Static charts and graphs
+seaborn>=0.13.0           # Statistical visualization
+
+# Performance & Caching
+redis>=5.0.0              # Redis caching and pub/sub
+celery>=5.3.0            # Background task processing
+flower>=2.0.1            # Celery monitoring
+
+# API Documentation
+fastapi>=0.104.0          # API framework (if building API endpoints)
+swagger-ui-bundle>=0.19.0 # API documentation UI
+
+# Development Tools
+ipython>=8.18.0           # Enhanced Python REPL
+jupyter>=1.0.0            # Jupyter notebooks for analysis
+pre-commit>=3.6.0         # Git pre-commit hooks
+
+# WorldCup Specific
+FIFA-World-Cup-2026>=1.0.0  # Custom package for tournament data (TBD)
+world-cup-api>=2.0.0        # World Cup data API wrapper (TBD)
+
+# ObjectWire Integration
+objectwire-sdk>=1.0.0       # Custom SDK for objectwire.org (TBD)
